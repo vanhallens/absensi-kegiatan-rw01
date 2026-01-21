@@ -3,7 +3,7 @@
  <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Absensi Kegiatan RW 01</title>
+  <title>Absensi Kegiatan RW</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="/_sdk/element_sdk.js"></script>
   <script src="/_sdk/data_sdk.js"></script>
@@ -109,6 +109,9 @@
       background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
       border: 1px solid rgba(255,255,255,0.1);
     }
+    .data-tab {
+      transition: all 0.2s ease;
+    }
     .data-tab:hover {
       background: rgba(245, 158, 11, 0.1);
       color: #f59e0b;
@@ -127,19 +130,31 @@
       background: #f9fafb;
       z-index: 10;
     }
+    .version-badge {
+      display: inline-block;
+      background: rgba(245, 158, 11, 0.1);
+      color: #f59e0b;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-top: 0.5rem;
+    }
   </style>
   <style>@view-transition { navigation: auto; }</style>
  </head>
  <body class="h-full bg-gray-100">
-  <div id="app" class="h-full overflow-auto"><!-- Toast Container -->
-   <div id="toast-container" class="fixed top-4 right-4 z-50"></div><!-- Main Content -->
-   <div id="main-content"></div><!-- Modal Container -->
+  <div id="app" class="h-full w-full overflow-auto">
+   <div id="toast-container" class="fixed top-4 right-4 z-50"></div>
+   <div id="main-content"></div>
    <div id="modal-container"></div>
   </div>
   <script>
-    // Default Config
+    // Configuration & State
+    const APP_VERSION = 'v2.2.0';
+    
     const defaultConfig = {
-      app_title: 'Absensi Kegiatan RW 01',
+      app_title: 'Absensi Kegiatan RW',
       rw_number: '05',
       kelurahan: 'Sukamaju',
       primary_color: '#1e3a5f',
@@ -149,33 +164,47 @@
       surface_color: '#ffffff'
     };
 
-    // State
     let config = { ...defaultConfig };
     let currentView = 'home';
     let currentUser = null;
     let isAdmin = false;
     let users = [];
+    let admins = [];
     let activities = [];
     let attendances = [];
     let videoStream = null;
     let editingActivity = null;
     let currentDataTab = 'users';
+    let loginMode = 'warga';
+    let selectedActivity = null;
+    let capturedAttendancePhoto = null;
+    let capturedSignature = null;
+    let isDrawing = false;
+    let signatureCanvas = null;
+    let signatureCtx = null;
 
-    // Data Handler
-    const dataHandler = {
-      onDataChanged(data) {
-        users = data.filter(d => d.type === 'user');
-        activities = data.filter(d => d.type === 'activity');
-        attendances = data.filter(d => d.type === 'attendance');
-        renderCurrentView();
+    // Create Default Admin
+    async function createDefaultAdmin() {
+      const result = await window.dataSdk.create({
+        type: 'admin',
+        username: 'admin',
+        password: 'admin123',
+        full_name: 'Administrator',
+        email: 'admin@system.local',
+        role: 'admin',
+        registered_at: new Date().toISOString()
+      });
+      
+      if (result.isOk) {
+        console.log('Admin default berhasil dibuat');
       }
-    };
+    }
 
-    // Initialize SDKs
+    // Initialize Application
     async function initApp() {
       if (window.elementSdk) {
-        window.elementSdk.init({
-          defaultConfig,
+        await window.elementSdk.init({
+          defaultConfig: defaultConfig,
           onConfigChange: async (newConfig) => {
             config = { ...defaultConfig, ...newConfig };
             renderCurrentView();
@@ -202,9 +231,24 @@
       }
 
       if (window.dataSdk) {
-        const result = await window.dataSdk.init(dataHandler);
+        const result = await window.dataSdk.init({
+          onDataChanged(data) {
+            users = data.filter(d => d.type === 'user');
+            admins = data.filter(d => d.type === 'admin');
+            activities = data.filter(d => d.type === 'activity');
+            attendances = data.filter(d => d.type === 'attendance');
+            
+            renderCurrentView();
+          }
+        });
         if (!result.isOk) {
           showToast('Gagal menginisialisasi database', 'error');
+        } else {
+          setTimeout(async () => {
+            if (admins.length === 0) {
+              await createDefaultAdmin();
+            }
+          }, 500);
         }
       }
 
@@ -257,13 +301,17 @@
           break;
         case 'admin-dashboard':
           content.innerHTML = renderAdminDashboard();
+          setTimeout(renderDataTable, 100);
           break;
         case 'user-dashboard':
           content.innerHTML = renderUserDashboard();
           break;
         case 'attendance':
           content.innerHTML = renderAttendance();
-          setTimeout(startCamera, 100);
+          setTimeout(() => {
+            startCamera();
+            initSignatureCanvas();
+          }, 100);
           break;
         case 'activity-form':
           content.innerHTML = renderActivityForm();
@@ -289,7 +337,6 @@
       return `
         <div class="min-h-full gradient-bg" style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d1b2a 100%);">
           <div class="container mx-auto px-4 py-8">
-            <!-- Header -->
             <div class="text-center mb-12">
               <div class="inline-flex items-center justify-center w-20 h-20 rounded-full mb-4" style="background: ${secondaryColor};">
                 <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -298,9 +345,9 @@
               </div>
               <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">${appTitle}</h1>
               <p class="text-gray-300 text-lg">RW ${rwNumber} - Kelurahan ${kelurahan}</p>
+              <span class="version-badge">${APP_VERSION}</span>
             </div>
 
-            <!-- Single Login Card -->
             <div class="max-w-md mx-auto mb-12">
               <div class="card-glass rounded-2xl p-6 shadow-xl" style="background: ${surfaceColor};">
                 <div class="text-center">
@@ -322,7 +369,6 @@
               </div>
             </div>
 
-            <!-- Active Activities -->
             ${activeActivities.length > 0 ? `
               <div class="max-w-2xl mx-auto">
                 <h3 class="text-white text-xl font-semibold mb-4 text-center">📅 Kegiatan Aktif</h3>
@@ -331,7 +377,8 @@
                     <div class="card-glass rounded-xl p-4 flex items-center justify-between" style="background: ${surfaceColor};">
                       <div>
                         <h4 class="font-semibold" style="color: ${textColor};">${act.activity_name}</h4>
-                        <p class="text-sm text-gray-500">${formatDate(act.activity_date)} • ${act.activity_location}</p>
+                        <p class="text-sm text-gray-500">📅 ${formatDate(act.activity_date)} ${act.activity_time ? `• ⏰ ${act.activity_time}` : ''}</p>
+                        <p class="text-sm text-gray-500">📍 ${act.activity_location}</p>
                       </div>
                       <span class="status-badge status-aktif">Aktif</span>
                     </div>
@@ -343,8 +390,6 @@
         </div>
       `;
     }
-
-    let loginMode = 'warga'; // 'warga' or 'admin'
 
     function renderLogin() {
       const primaryColor = config.primary_color || defaultConfig.primary_color;
@@ -361,70 +406,37 @@
               </svg>
               Kembali
             </button>
-            
-            <!-- Role Toggle -->
-            <div class="flex gap-2 mb-6">
-              <button onclick="switchLoginMode('warga')" id="btn-warga" class="flex-1 py-3 px-4 rounded-xl font-semibold transition ${loginMode === 'warga' ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}" style="${loginMode === 'warga' ? `background: linear-gradient(135deg, ${secondaryColor} 0%, #d97706 100%);` : ''}">
-                👤 Warga
-              </button>
-              <button onclick="switchLoginMode('admin')" id="btn-admin" class="flex-1 py-3 px-4 rounded-xl font-semibold transition ${loginMode === 'admin' ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}" style="${loginMode === 'admin' ? `background: linear-gradient(135deg, ${primaryColor} 0%, #0d1b2a 100%);` : ''}">
-                ⚙️ Admin
-              </button>
-            </div>
 
             <div class="text-center mb-6">
-              <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" id="login-icon" style="background: linear-gradient(135deg, ${loginMode === 'warga' ? secondaryColor + ' 0%, #d97706' : primaryColor + ' 0%, #0d1b2a'} 100%);">
-                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" id="icon-svg">
-                  ${loginMode === 'warga' ? 
-                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>' :
-                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>'
-                  }
+              <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style="background: linear-gradient(135deg, ${secondaryColor} 0%, #d97706 100%);">
+                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
                 </svg>
               </div>
-              <h2 class="text-2xl font-bold" style="color: ${textColor};" id="login-title">${loginMode === 'warga' ? 'Masuk Warga' : 'Masuk Admin'}</h2>
-              <p class="text-gray-500" id="login-subtitle">${loginMode === 'warga' ? 'Masukkan NIK untuk melanjutkan' : 'Masukkan kredensial admin'}</p>
+              <h2 class="text-2xl font-bold" style="color: ${textColor};">Masuk Portal</h2>
+              <p class="text-gray-500">Masukkan username dan password Anda</p>
             </div>
 
-            <form id="login-form" onsubmit="handleUnifiedLogin(event)">
-              <!-- Warga Fields -->
-              <div id="warga-fields" class="${loginMode === 'warga' ? '' : 'hidden'}">
-                <div class="mb-4">
-                  <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="login-username">Username</label>
-                  <input type="text" id="login-username" name="username"
-                    class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                    placeholder="Masukkan username Anda" ${loginMode === 'warga' ? 'required' : ''}>
-                </div>
-                <div class="mb-4">
-                  <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="login-password">Password</label>
-                  <input type="password" id="login-password" name="password"
-                    class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                    placeholder="Masukkan password" ${loginMode === 'warga' ? 'required' : ''}>
-                </div>
+            <form id="login-form" onsubmit="handleAutoLogin(event)">
+              <div class="mb-4">
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="login-username">Username</label>
+                <input type="text" id="login-username" name="username" required
+                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
+                  placeholder="Masukkan username">
+              </div>
+              <div class="mb-6">
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="login-password">Password</label>
+                <input type="password" id="login-password" name="password" required
+                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
+                  placeholder="Masukkan password">
               </div>
 
-              <!-- Admin Fields -->
-              <div id="admin-fields" class="${loginMode === 'admin' ? '' : 'hidden'}">
-                <div class="mb-4">
-                  <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="admin-username">Username</label>
-                  <input type="text" id="admin-username" name="username"
-                    class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                    placeholder="Username admin" ${loginMode === 'admin' ? 'required' : ''}>
-                </div>
-                <div class="mb-4">
-                  <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="admin-password">Password</label>
-                  <input type="password" id="admin-password" name="password"
-                    class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                    placeholder="Password" ${loginMode === 'admin' ? 'required' : ''}>
-                </div>
-                <p class="mb-4 text-xs text-gray-400 text-center">Demo: admin / admin123</p>
-              </div>
-
-              <button type="submit" id="login-btn" class="w-full text-white font-semibold py-3 px-6 rounded-xl ${loginMode === 'warga' ? 'btn-primary' : 'btn-secondary'}">
+              <button type="submit" id="login-btn" class="w-full btn-primary text-white font-semibold py-3 px-6 rounded-xl">
                 Masuk
               </button>
             </form>
 
-            <p class="mt-6 text-center text-sm text-gray-500" id="register-link">
+            <p class="mt-6 text-center text-sm text-gray-500">
               Belum terdaftar? 
               <button onclick="navigate('register')" class="font-semibold hover:underline" style="color: ${secondaryColor};">Daftar di sini</button>
             </p>
@@ -433,46 +445,35 @@
       `;
     }
 
-    function switchLoginMode(mode) {
-      loginMode = mode;
-      renderCurrentView();
-    }
-
-    async function handleUnifiedLogin(e) {
+    async function handleAutoLogin(e) {
       e.preventDefault();
       const btn = document.getElementById('login-btn');
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value;
       
       btn.disabled = true;
       btn.textContent = 'Memproses...';
 
-      if (loginMode === 'warga') {
-        const username = document.getElementById('login-username').value.trim();
-        const password = document.getElementById('login-password').value;
-        const user = users.find(u => u.username === username && u.password === password);
-        
-        if (user) {
-          currentUser = user;
-          showToast(`Selamat datang, ${user.name}!`);
-          navigate('user-dashboard', { user });
-        } else {
-          showToast('Username atau password salah!', 'error');
-          btn.disabled = false;
-          btn.textContent = 'Masuk';
-        }
-      } else {
-        const username = document.getElementById('admin-username').value.trim();
-        const password = document.getElementById('admin-password').value;
-        
-        if (username === 'admin' && password === 'admin123') {
-          isAdmin = true;
-          showToast('Login admin berhasil!');
-          navigate('admin-dashboard', { admin: true });
-        } else {
-          showToast('Username atau password salah!', 'error');
-          btn.disabled = false;
-          btn.textContent = 'Masuk';
-        }
+      const admin = admins.find(a => a.username === username && a.password === password);
+      if (admin) {
+        isAdmin = true;
+        currentUser = admin;
+        showToast(`Selamat datang Admin!`);
+        navigate('admin-dashboard', { admin: true });
+        return;
       }
+
+      const user = users.find(u => u.username === username && u.password === password);
+      if (user) {
+        currentUser = user;
+        showToast(`Selamat datang, ${user.name}!`);
+        navigate('user-dashboard', { user });
+        return;
+      }
+
+      showToast('Username atau password salah!', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Masuk';
     }
 
     function renderRegister() {
@@ -492,146 +493,61 @@
             </button>
             
             <div class="text-center mb-6">
-              <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style="background: linear-gradient(135deg, ${secondaryColor} 0%, #d97706 100%);">
-                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
-                </svg>
-              </div>
               <h2 class="text-2xl font-bold" style="color: ${textColor};">Pendaftaran Warga</h2>
               <p class="text-gray-500">Lengkapi data diri Anda</p>
             </div>
 
             <form id="register-form" onsubmit="handleRegister(event)">
               <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="reg-name">Nama Lengkap</label>
-                <input type="text" id="reg-name" name="name" required
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Nama Lengkap</label>
+                <input type="text" id="reg-name" required
                   class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
                   placeholder="Masukkan nama lengkap">
               </div>
-              
               <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="reg-username">Username</label>
-                <input type="text" id="reg-username" name="username" required minlength="4"
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Username</label>
+                <input type="text" id="reg-username" required minlength="4"
                   class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  placeholder="Masukkan username (min. 4 karakter)">
+                  placeholder="Masukkan username">
               </div>
-              
               <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="reg-password">Password</label>
-                <input type="password" id="reg-password" name="password" required minlength="6"
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Password</label>
+                <input type="password" id="reg-password" required minlength="6"
                   class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  placeholder="Masukkan password (min. 6 karakter)">
+                  placeholder="Masukkan password">
               </div>
-              
               <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="reg-confirm-password">Confirm Password</label>
-                <input type="password" id="reg-confirm-password" name="confirm_password" required minlength="6"
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Konfirmasi Password</label>
+                <input type="password" id="reg-password-confirm" required minlength="6"
                   class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  placeholder="Ketik ulang password">
+                  placeholder="Masukkan ulang password">
               </div>
-              
               <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="reg-rt-select">RT / SATUAN / Lainnya</label>
-                <select id="reg-rt-select" name="rt_select" required onchange="toggleRtInput()"
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none">
-                  <option value="">Pilih RT, SATUAN, atau Lainnya</option>
-                  ${[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16].map(rt => `<option value="RT ${rt.toString().padStart(2,'0')}">RT ${rt.toString().padStart(2,'0')}</option>`).join('')}
-                  <option value="lainnya">Lainnya (ketik manual)</option>
-                </select>
-              </div>
-              
-              <div id="reg-rt-custom-container" class="mb-4 hidden">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="reg-rt-custom">Ketik RT / SATUAN / Lainnya</label>
-                <input type="text" id="reg-rt-custom" name="rt_custom"
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">RT</label>
+                <input type="text" id="reg-rt" required
                   class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  placeholder="Contoh: RT 17, Pengurus, dll">
+                  placeholder="Contoh: RT 01">
               </div>
-              
-              <!-- Camera for Photo -->
               <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Foto Wajah</label>
-                <div id="reg-camera-container" class="camera-container bg-gray-900 rounded-xl overflow-hidden" style="height: 250px;">
-                  <video id="reg-video" autoplay playsinline class="w-full h-full object-cover"></video>
-                  <div class="camera-overlay" id="reg-camera-overlay">
-                    <div class="face-guide"></div>
-                  </div>
-                </div>
-                <canvas id="reg-canvas" class="hidden"></canvas>
-                <input type="hidden" id="reg-photo" name="photo">
-                <div class="flex gap-2 mt-3">
-                  <button type="button" onclick="startRegisterCamera()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg transition">
-                    📷 Buka Kamera
-                  </button>
-                  <button type="button" onclick="captureRegisterPhoto()" class="flex-1 text-white font-medium py-2 px-4 rounded-lg transition" style="background: ${secondaryColor};">
-                    📸 Ambil Foto
-                  </button>
-                </div>
-                <div id="reg-photo-preview" class="mt-3 hidden">
-                  <img id="reg-preview-img" class="w-full rounded-xl" alt="Preview foto">
-                </div>
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Jabatan / Satuan</label>
+                <input type="text" id="reg-position" required
+                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
+                  placeholder="Contoh: Ketua RT, Sekretaris, Warga">
               </div>
-
+              <div class="mb-4">
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">No Telepon</label>
+                <input type="tel" id="reg-phone" required
+                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
+                  placeholder="Contoh: 08123456789">
+              </div>
+              <input type="hidden" id="reg-photo" value="">
               <button type="submit" id="register-btn" class="w-full btn-primary text-white font-semibold py-3 px-6 rounded-xl">
                 Daftar Sekarang
               </button>
             </form>
-
-            <p class="mt-6 text-center text-sm text-gray-500">
-              Sudah terdaftar? 
-              <button onclick="navigate('login')" class="font-semibold hover:underline" style="color: ${secondaryColor};">Masuk di sini</button>
-            </p>
           </div>
         </div>
       `;
-    }
-
-    function toggleRtInput() {
-      const select = document.getElementById('reg-rt-select');
-      const customContainer = document.getElementById('reg-rt-custom-container');
-      const customInput = document.getElementById('reg-rt-custom');
-      
-      if (select.value === 'lainnya') {
-        customContainer.classList.remove('hidden');
-        customInput.required = true;
-      } else {
-        customContainer.classList.add('hidden');
-        customInput.required = false;
-        customInput.value = '';
-      }
-    }
-
-    async function startRegisterCamera() {
-      try {
-        const video = document.getElementById('reg-video');
-        videoStream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'user', width: 640, height: 480 } 
-        });
-        video.srcObject = videoStream;
-        document.getElementById('reg-camera-overlay').style.display = 'flex';
-        showToast('Kamera aktif! Posisikan wajah di dalam bingkai.');
-      } catch (err) {
-        showToast('Gagal mengakses kamera. Pastikan izin kamera diberikan.', 'error');
-      }
-    }
-
-    function captureRegisterPhoto() {
-      const video = document.getElementById('reg-video');
-      const canvas = document.getElementById('reg-canvas');
-      const ctx = canvas.getContext('2d');
-      
-      canvas.width = 320;
-      canvas.height = 240;
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      const photoData = canvas.toDataURL('image/jpeg', 0.7);
-      document.getElementById('reg-photo').value = photoData;
-      
-      const preview = document.getElementById('reg-photo-preview');
-      document.getElementById('reg-preview-img').src = photoData;
-      preview.classList.remove('hidden');
-      
-      document.getElementById('reg-camera-overlay').style.display = 'none';
-      showToast('Foto berhasil diambil!');
     }
 
     async function handleRegister(e) {
@@ -640,24 +556,13 @@
       const name = document.getElementById('reg-name').value.trim();
       const username = document.getElementById('reg-username').value.trim();
       const password = document.getElementById('reg-password').value;
-      const confirmPassword = document.getElementById('reg-confirm-password').value;
-      const rtSelect = document.getElementById('reg-rt-select').value;
-      const rtCustom = document.getElementById('reg-rt-custom').value.trim();
-      const photo = document.getElementById('reg-photo').value;
+      const passwordConfirm = document.getElementById('reg-password-confirm').value;
+      const rt = document.getElementById('reg-rt').value.trim();
+      const position = document.getElementById('reg-position').value.trim();
+      const phone = document.getElementById('reg-phone').value.trim();
 
-      // Validation
-      if (password !== confirmPassword) {
-        showToast('Password dan Confirm Password tidak sama!', 'error');
-        return;
-      }
-
-      if (!photo) {
-        showToast('Silakan ambil foto wajah terlebih dahulu', 'error');
-        return;
-      }
-
-      if (users.length >= 999) {
-        showToast('Batas maksimum pendaftaran tercapai', 'error');
+      if (password !== passwordConfirm) {
+        showToast('Password dan konfirmasi password tidak cocok!', 'error');
         return;
       }
 
@@ -666,8 +571,10 @@
         return;
       }
 
-      // Determine RT value
-      const rtValue = rtSelect === 'lainnya' ? rtCustom : rtSelect;
+      if (users.length >= 999) {
+        showToast('Batas maksimum pendaftaran tercapai', 'error');
+        return;
+      }
 
       btn.disabled = true;
       btn.textContent = 'Mendaftarkan...';
@@ -677,14 +584,15 @@
         name,
         username,
         password,
-        rt: rtValue,
-        photo,
+        rt,
+        position,
+        phone,
+        photo: '',
         registered_at: new Date().toISOString()
       });
 
       if (result.isOk) {
         showToast('Pendaftaran berhasil! Silakan masuk.');
-        stopCamera();
         navigate('login');
       } else {
         showToast('Gagal mendaftar. Silakan coba lagi.', 'error');
@@ -693,417 +601,913 @@
       }
     }
 
-
-
-    // Data Table Functions
-    function switchDataTab(tab) {
-      currentDataTab = tab;
-      renderDataTable();
-    }
-
-    function renderDataTable() {
-      const container = document.getElementById('data-table-container');
-      const textColor = config.text_color || defaultConfig.text_color;
-      
-      // Update tab styles
-      document.querySelectorAll('.data-tab').forEach(btn => {
-        btn.classList.remove('active');
-      });
-      document.getElementById(`tab-${currentDataTab}`).classList.add('active');
-
-      if (currentDataTab === 'users') {
-        container.innerHTML = renderUsersTable(textColor);
-      } else if (currentDataTab === 'activities') {
-        container.innerHTML = renderActivitiesTable(textColor);
-      } else if (currentDataTab === 'attendances') {
-        container.innerHTML = renderAttendancesTable(textColor);
-      }
-    }
-
-    function renderUsersTable(textColor) {
-      if (users.length === 0) {
-        return `<div class="text-center py-8 text-gray-400">Belum ada data warga</div>`;
-      }
-      return `
-        <div class="max-h-96 overflow-y-auto">
-          <table class="w-full data-table">
-            <thead>
-              <tr class="border-b-2" style="color: ${textColor};">
-                <th class="text-left py-3 px-3 font-semibold">Nama Lengkap</th>
-                <th class="text-left py-3 px-3 font-semibold">Username</th>
-                <th class="text-left py-3 px-3 font-semibold">RT</th>
-                <th class="text-left py-3 px-3 font-semibold">Terdaftar</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${users.map(user => `
-                <tr class="border-b hover:bg-gray-50" style="color: ${textColor};">
-                  <td class="py-2 px-3">${user.name}</td>
-                  <td class="py-2 px-3">@${user.username}</td>
-                  <td class="py-2 px-3">${user.rt}</td>
-                  <td class="py-2 px-3">${formatDateTime(user.registered_at)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
-    }
-
-    function renderActivitiesTable(textColor) {
-      if (activities.length === 0) {
-        return `<div class="text-center py-8 text-gray-400">Belum ada data kegiatan</div>`;
-      }
-      return `
-        <div class="max-h-96 overflow-y-auto">
-          <table class="w-full data-table">
-            <thead>
-              <tr class="border-b-2" style="color: ${textColor};">
-                <th class="text-left py-3 px-3 font-semibold">Nama Kegiatan</th>
-                <th class="text-left py-3 px-3 font-semibold">Tanggal</th>
-                <th class="text-left py-3 px-3 font-semibold">Lokasi</th>
-                <th class="text-left py-3 px-3 font-semibold">Status</th>
-                <th class="text-left py-3 px-3 font-semibold">Dibuat</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${activities.map(act => `
-                <tr class="border-b hover:bg-gray-50" style="color: ${textColor};">
-                  <td class="py-2 px-3">${act.activity_name}</td>
-                  <td class="py-2 px-3">${formatDate(act.activity_date)}</td>
-                  <td class="py-2 px-3">${act.activity_location}</td>
-                  <td class="py-2 px-3"><span class="status-badge status-${act.activity_status}">${act.activity_status}</span></td>
-                  <td class="py-2 px-3">${formatDateTime(act.created_at)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
-    }
-
-    function renderAttendancesTable(textColor) {
-      if (attendances.length === 0) {
-        return `<div class="text-center py-8 text-gray-400">Belum ada data absensi</div>`;
-      }
-      return `
-        <div class="max-h-96 overflow-y-auto">
-          <table class="w-full data-table">
-            <thead>
-              <tr class="border-b-2" style="color: ${textColor};">
-                <th class="text-left py-3 px-3 font-semibold">Username</th>
-                <th class="text-left py-3 px-3 font-semibold">Nama Warga</th>
-                <th class="text-left py-3 px-3 font-semibold">Kegiatan</th>
-                <th class="text-left py-3 px-3 font-semibold">Waktu Absensi</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${attendances.map(att => {
-                const user = users.find(u => u.username === att.user_username);
-                return `
-                  <tr class="border-b hover:bg-gray-50" style="color: ${textColor};">
-                    <td class="py-2 px-3">@${att.user_username}</td>
-                    <td class="py-2 px-3">${user ? user.name : '-'}</td>
-                    <td class="py-2 px-3">${att.activity_name}</td>
-                    <td class="py-2 px-3">${formatDateTime(att.attendance_time)}</td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
-    }
-
-    // Download Functions
-    function downloadTableData(type) {
-      let data = [];
-      let filename = '';
-      
-      if (type === 'users') {
-        data = users.map(u => ({
-          'Nama Lengkap': u.name,
-          'Username': u.username,
-          'RT': u.rt,
-          'Tanggal Daftar': formatDateTime(u.registered_at)
-        }));
-        filename = 'data_warga.csv';
-      } else if (type === 'activities') {
-        data = activities.map(a => ({
-          'Nama Kegiatan': a.activity_name,
-          'Tanggal': a.activity_date,
-          'Lokasi': a.activity_location,
-          'Status': a.activity_status,
-          'Jumlah Peserta': attendances.filter(att => att.activity_name === a.activity_name).length,
-          'Dibuat': formatDateTime(a.created_at)
-        }));
-        filename = 'data_kegiatan.csv';
-      } else if (type === 'attendances') {
-        data = attendances.map(att => {
-          const user = users.find(u => u.username === att.user_username);
-          return {
-            'Username': att.user_username,
-            'Nama Warga': user ? user.name : '-',
-            'RT': user ? user.rt : '-',
-            'Kegiatan': att.activity_name,
-            'Waktu Absensi': formatDateTime(att.attendance_time)
-          };
-        });
-        filename = 'data_absensi.csv';
-      }
-
-      if (data.length === 0) {
-        showToast('Tidak ada data untuk diunduh', 'error');
-        return;
-      }
-
-      const csv = convertToCSV(data);
-      downloadCSV(csv, filename);
-      showToast(`Data berhasil diunduh: ${filename}`);
-    }
-
-    function convertToCSV(data) {
-      const headers = Object.keys(data[0]);
-      const csvRows = [];
-      
-      // Add headers
-      csvRows.push(headers.join(','));
-      
-      // Add data rows
-      for (const row of data) {
-        const values = headers.map(header => {
-          const value = row[header];
-          // Escape quotes and wrap in quotes if contains comma
-          const escaped = String(value).replace(/"/g, '""');
-          return escaped.includes(',') ? `"${escaped}"` : escaped;
-        });
-        csvRows.push(values.join(','));
-      }
-      
-      return csvRows.join('\n');
-    }
-
-    function downloadCSV(csv, filename) {
-      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      
-      link.setAttribute('href', url);
-      link.setAttribute('download', filename);
-      link.style.visibility = 'hidden';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-
     function renderAdminDashboard() {
       const primaryColor = config.primary_color || defaultConfig.primary_color;
       const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
       const textColor = config.text_color || defaultConfig.text_color;
       const surfaceColor = config.surface_color || defaultConfig.surface_color;
       const bgColor = config.background_color || defaultConfig.background_color;
-      const appTitle = config.app_title || defaultConfig.app_title;
-
-      const totalUsers = users.length;
-      const totalActivities = activities.length;
-      const activeActivities = activities.filter(a => a.activity_status === 'aktif').length;
-      const totalAttendances = attendances.length;
 
       return `
         <div class="min-h-full" style="background: ${bgColor};">
-          <!-- Header -->
           <div class="gradient-bg text-white px-4 py-6" style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d1b2a 100%);">
             <div class="container mx-auto flex justify-between items-center">
               <div>
                 <h1 class="text-xl font-bold">Dashboard Admin</h1>
-                <p class="text-sm opacity-80">${appTitle}</p>
+                <span class="version-badge">${APP_VERSION}</span>
               </div>
-              <button onclick="logout()" class="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                </svg>
-                Keluar
-              </button>
+              <button onclick="logout()" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition">Keluar</button>
             </div>
           </div>
 
           <div class="container mx-auto px-4 py-6">
-            <!-- Stats -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <div class="rounded-xl p-4 text-white" style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d1b2a 100%);">
+              <div class="rounded-xl p-4 text-white" style="background: ${primaryColor};">
                 <p class="text-sm opacity-80">Total Warga</p>
-                <p class="text-3xl font-bold">${totalUsers}</p>
+                <p class="text-3xl font-bold">${users.length}</p>
               </div>
-              <div class="rounded-xl p-4 text-white" style="background: linear-gradient(135deg, ${secondaryColor} 0%, #d97706 100%);">
+              <div class="rounded-xl p-4 text-white" style="background: ${secondaryColor};">
                 <p class="text-sm opacity-80">Total Kegiatan</p>
-                <p class="text-3xl font-bold">${totalActivities}</p>
+                <p class="text-3xl font-bold">${activities.length}</p>
               </div>
-              <div class="rounded-xl p-4" style="background: ${surfaceColor}; color: ${textColor};">
+              <div class="rounded-xl p-4" style="background: ${surfaceColor};">
                 <p class="text-sm opacity-60">Kegiatan Aktif</p>
-                <p class="text-3xl font-bold" style="color: #059669;">${activeActivities}</p>
+                <p class="text-3xl font-bold text-green-600">${activities.filter(a => a.activity_status === 'aktif').length}</p>
               </div>
-              <div class="rounded-xl p-4" style="background: ${surfaceColor}; color: ${textColor};">
+              <div class="rounded-xl p-4" style="background: ${surfaceColor};">
                 <p class="text-sm opacity-60">Total Absensi</p>
-                <p class="text-3xl font-bold">${totalAttendances}</p>
+                <p class="text-3xl font-bold">${attendances.length}</p>
               </div>
             </div>
 
-            <!-- Activities Section -->
             <div class="rounded-2xl shadow-lg p-6 mb-8" style="background: ${surfaceColor};">
               <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-bold" style="color: ${textColor};">📅 Kelola Kegiatan</h2>
-                <button onclick="navigate('activity-form')" class="btn-primary text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                <h2 class="text-xl font-bold">📅 Kelola Kegiatan</h2>
+                <button onclick="navigate('activity-form')" class="btn-primary text-white font-medium py-2 px-4 rounded-lg">+ Tambah</button>
+              </div>
+              ${activities.length === 0 ? '<p class="text-gray-400 text-center py-8">Belum ada kegiatan</p>' : `
+                <div class="space-y-3">
+                  ${activities.map(act => {
+                    const activityAttendances = attendances.filter(a => a.activity_name === act.activity_name);
+                    return `
+                    <div class="border rounded-xl p-4">
+                      <div class="flex justify-between items-start mb-3">
+                        <div class="flex-1">
+                          <h3 class="font-semibold">${act.activity_name}</h3>
+                          <p class="text-sm text-gray-500">📅 ${formatDate(act.activity_date)} ${act.activity_time ? `• ⏰ ${act.activity_time}` : ''}</p>
+                          <p class="text-sm text-gray-500">📍 ${act.activity_location}</p>
+                          <p class="text-sm text-gray-500 mt-1">👥 ${activityAttendances.length} peserta hadir</p>
+                        </div>
+                        <div class="flex gap-2 items-start">
+                          <span class="status-badge status-${act.activity_status}">${act.activity_status}</span>
+                        </div>
+                      </div>
+                      <div class="flex gap-2 flex-wrap">
+                        <button onclick="editActivity('${act.__backendId}')" class="text-blue-500 px-3 py-1 hover:bg-blue-50 rounded text-sm">✏️ Edit</button>
+                        <button onclick="viewActivityAttendance('${act.activity_name}')" class="text-green-600 px-3 py-1 hover:bg-green-50 rounded text-sm">👥 Lihat Absensi</button>
+                        <button onclick="printAttendance('${act.activity_name}')" class="text-purple-600 px-3 py-1 hover:bg-purple-50 rounded text-sm">🖨️ Cetak Absensi</button>
+                        <button onclick="deleteActivityConfirm('${act.__backendId}')" class="text-red-500 px-3 py-1 hover:bg-red-50 rounded text-sm">🗑️ Hapus</button>
+                      </div>
+                    </div>
+                  `;
+                  }).join('')}
+                </div>
+              `}
+            </div>
+
+            <div class="rounded-2xl shadow-lg p-6 mb-8" style="background: ${surfaceColor};">
+              <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">💾 Export & Backup Data</h2>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <button onclick="exportUsers()" class="flex flex-col items-center justify-center p-4 rounded-xl border-2 hover:shadow-lg transition" style="border-color: ${secondaryColor};">
+                  <svg class="w-12 h-12 mb-2" style="color: ${secondaryColor};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
                   </svg>
-                  Tambah Kegiatan
+                  <span class="font-semibold text-sm" style="color: ${textColor};">Export Warga</span>
+                  <span class="text-xs text-gray-500 text-center mt-1">Download daftar warga (CSV)</span>
+                </button>
+                
+                <button onclick="downloadDatabase()" class="flex flex-col items-center justify-center p-4 rounded-xl border-2 hover:shadow-lg transition" style="border-color: ${primaryColor};">
+                  <svg class="w-12 h-12 mb-2" style="color: ${primaryColor};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
+                  </svg>
+                  <span class="font-semibold text-sm" style="color: ${textColor};">Download Database</span>
+                  <span class="text-xs text-gray-500 text-center mt-1">Backup lengkap semua data (JSON)</span>
+                </button>
+
+                <button onclick="exportActivitiesReport()" class="flex flex-col items-center justify-center p-4 rounded-xl border-2 hover:shadow-lg transition border-green-500">
+                  <svg class="w-12 h-12 mb-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                  <span class="font-semibold text-sm" style="color: ${textColor};">Laporan Kegiatan</span>
+                  <span class="text-xs text-gray-500 text-center mt-1">Export laporan kegiatan (CSV)</span>
                 </button>
               </div>
 
-              ${activities.length === 0 ? `
-                <div class="text-center py-12 text-gray-400">
-                  <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                  </svg>
-                  <p>Belum ada kegiatan</p>
-                </div>
-              ` : `
+              <div class="border-t pt-6">
+                <h3 class="text-lg font-bold mb-4">👥 Daftar Warga Terdaftar</h3>
+              ${users.length === 0 ? '<p class="text-gray-400 text-center py-8">Belum ada warga terdaftar</p>' : `
                 <div class="overflow-x-auto">
-                  <table class="w-full">
+                  <table class="w-full text-sm">
                     <thead>
-                      <tr class="border-b" style="color: ${textColor};">
-                        <th class="text-left py-3 px-4 font-semibold">Nama Kegiatan</th>
-                        <th class="text-left py-3 px-4 font-semibold">Tanggal</th>
-                        <th class="text-left py-3 px-4 font-semibold">Lokasi</th>
-                        <th class="text-left py-3 px-4 font-semibold">Status</th>
-                        <th class="text-left py-3 px-4 font-semibold">Absensi</th>
-                        <th class="text-center py-3 px-4 font-semibold">Aksi</th>
+                      <tr class="border-b-2 border-gray-200">
+                        <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">No</th>
+                        <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">Nama</th>
+                        <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">Username</th>
+                        <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">RT</th>
+                        <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">Jabatan</th>
+                        <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">No. Telepon</th>
+                        <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">Tgl Daftar</th>
                       </tr>
                     </thead>
                     <tbody>
-                      ${activities.map(act => {
-                        const actAttendances = attendances.filter(a => a.activity_name === act.activity_name);
-                        return `
-                          <tr class="table-row border-b" style="color: ${textColor};">
-                            <td class="py-3 px-4 font-medium">${act.activity_name}</td>
-                            <td class="py-3 px-4">${formatDate(act.activity_date)}</td>
-                            <td class="py-3 px-4">${act.activity_location}</td>
-                            <td class="py-3 px-4">
-                              <span class="status-badge status-${act.activity_status}">${act.activity_status.charAt(0).toUpperCase() + act.activity_status.slice(1)}</span>
-                            </td>
-                            <td class="py-3 px-4">${actAttendances.length} orang</td>
-                            <td class="py-3 px-4 text-center">
-                              <div class="flex justify-center gap-2">
-                                <button onclick="editActivity('${act.__backendId}')" class="p-2 hover:bg-gray-100 rounded-lg transition" title="Edit">
-                                  <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                  </svg>
-                                </button>
-                                <button onclick="confirmDeleteActivity('${act.__backendId}')" class="p-2 hover:bg-gray-100 rounded-lg transition" title="Hapus">
-                                  <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                  </svg>
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        `;
-                      }).join('')}
+                      ${users.map((user, index) => `
+                        <tr class="border-b border-gray-100 hover:bg-gray-50">
+                          <td class="py-3 px-2">${index + 1}</td>
+                          <td class="py-3 px-2 font-medium" style="color: ${textColor};">${user.name}</td>
+                          <td class="py-3 px-2 text-gray-600">${user.username}</td>
+                          <td class="py-3 px-2 text-gray-600">${user.rt}</td>
+                          <td class="py-3 px-2 text-gray-600">${user.position}</td>
+                          <td class="py-3 px-2 text-gray-600">${user.phone}</td>
+                          <td class="py-3 px-2 text-gray-500 text-xs">${formatDate(user.registered_at)}</td>
+                        </tr>
+                      `).join('')}
                     </tbody>
                   </table>
                 </div>
               `}
             </div>
 
-            <!-- Data Tables Section -->
-            <div class="rounded-2xl shadow-lg p-6 mb-8" style="background: ${surfaceColor};">
-              <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-bold" style="color: ${textColor};">📊 Database & Export Data</h2>
-                <div class="flex gap-2">
-                  <button onclick="downloadTableData('users')" class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                    </svg>
-                    Export Warga
-                  </button>
-                  <button onclick="downloadTableData('activities')" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                    </svg>
-                    Export Kegiatan
-                  </button>
-                  <button onclick="downloadTableData('attendances')" class="bg-purple-500 hover:bg-purple-600 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                    </svg>
-                    Export Absensi
-                  </button>
-                </div>
-              </div>
-
-              <!-- Tabs -->
-              <div class="flex gap-2 mb-4 border-b">
-                <button onclick="switchDataTab('users')" id="tab-users" class="data-tab px-4 py-2 font-medium transition border-b-2 border-transparent" style="color: ${textColor};">
-                  👥 Warga (${totalUsers})
-                </button>
-                <button onclick="switchDataTab('activities')" id="tab-activities" class="data-tab px-4 py-2 font-medium transition border-b-2 border-transparent" style="color: ${textColor};">
-                  📅 Kegiatan (${totalActivities})
-                </button>
-                <button onclick="switchDataTab('attendances')" id="tab-attendances" class="data-tab px-4 py-2 font-medium transition border-b-2 border-transparent" style="color: ${textColor};">
-                  ✅ Absensi (${totalAttendances})
-                </button>
-              </div>
-
-              <!-- Table Container -->
-              <div id="data-table-container" class="overflow-x-auto">
-                <!-- Tables will be rendered here -->
-              </div>
-            </div>
-
-            <!-- Users Section -->
             <div class="rounded-2xl shadow-lg p-6" style="background: ${surfaceColor};">
-              <h2 class="text-xl font-bold mb-6" style="color: ${textColor};">👥 Kartu Warga Terdaftar</h2>
-              
-              ${users.length === 0 ? `
-                <div class="text-center py-12 text-gray-400">
-                  <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
-                  </svg>
-                  <p>Belum ada warga terdaftar</p>
-                </div>
-              ` : `
-                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  ${users.map(user => `
-                    <div class="border rounded-xl p-4 flex items-center gap-4">
-                      <img src="${user.photo || 'data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 viewBox%3D%220 0 24 24%22 fill%3D%22%23ccc%22%3E%3Cpath d%3D%22M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z%22%2F%3E%3C%2Fsvg%3E'}" 
-                        class="w-14 h-14 rounded-full object-cover border-2" style="border-color: ${secondaryColor};" alt="${user.name}">
-                      <div class="flex-1 min-w-0">
-                        <p class="font-semibold truncate" style="color: ${textColor};">${user.name}</p>
-                        <p class="text-sm text-gray-500">@${user.username}</p>
-                        <p class="text-xs text-gray-400">${user.rt}</p>
+              <h2 class="text-xl font-bold mb-6">📜 History Kegiatan</h2>
+              ${activities.length === 0 ? '<p class="text-gray-400 text-center py-8">Belum ada history kegiatan</p>' : `
+                <div class="space-y-3">
+                  ${activities.sort((a, b) => new Date(b.activity_date) - new Date(a.activity_date)).map(act => {
+                    const activityAttendances = attendances.filter(a => a.activity_name === act.activity_name);
+                    return `
+                    <div class="border rounded-xl p-4">
+                      <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                          <div class="flex items-center gap-2 mb-2">
+                            <h3 class="font-semibold">${act.activity_name}</h3>
+                            <span class="status-badge status-${act.activity_status}">${act.activity_status}</span>
+                          </div>
+                          <p class="text-sm text-gray-500">📅 ${formatDate(act.activity_date)} ${act.activity_time ? `• ⏰ ${act.activity_time}` : ''}</p>
+                          <p class="text-sm text-gray-500">📍 ${act.activity_location}</p>
+                          <p class="text-sm text-gray-500 mt-1">👥 ${activityAttendances.length} peserta hadir</p>
+                          ${activityAttendances.length > 0 ? `
+                            <button onclick="toggleActivityHistory('${act.__backendId}')" class="text-xs mt-2 px-3 py-1 rounded-lg border hover:bg-gray-50" style="color: ${secondaryColor}; border-color: ${secondaryColor};">
+                              Lihat Detail Peserta
+                            </button>
+                            <div id="history-${act.__backendId}" class="hidden mt-3 border-t pt-3">
+                              <div class="space-y-2">
+                                ${activityAttendances.map(att => {
+                                  const attendeeUser = users.find(u => u.username === att.user_username);
+                                  return `
+                                    <div class="flex items-center justify-between text-sm bg-gray-50 rounded-lg p-2">
+                                      <div class="flex items-center gap-2">
+                                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold" style="background: ${secondaryColor};">
+                                          ${attendeeUser ? attendeeUser.name.charAt(0).toUpperCase() : '?'}
+                                        </div>
+                                        <div>
+                                          <p class="font-medium">${attendeeUser ? attendeeUser.name : 'Unknown'}</p>
+                                          <p class="text-xs text-gray-500">${attendeeUser ? attendeeUser.rt : '-'} • ${attendeeUser ? attendeeUser.position : '-'}</p>
+                                        </div>
+                                      </div>
+                                      <span class="text-xs text-gray-500">${formatDateTime(att.attendance_time)}</span>
+                                    </div>
+                                  `;
+                                }).join('')}
+                              </div>
+                            </div>
+                          ` : ''}
+                        </div>
                       </div>
-                      <button onclick="confirmDeleteUser('${user.__backendId}')" class="p-2 hover:bg-red-50 rounded-lg transition" title="Hapus">
-                        <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
-                      </button>
                     </div>
-                  `).join('')}
+                  `;
+                  }).join('')}
                 </div>
               `}
             </div>
           </div>
         </div>
       `;
+    }
+
+    function toggleActivityHistory(activityId) {
+      const element = document.getElementById('history-' + activityId);
+      if (element) {
+        element.classList.toggle('hidden');
+      }
+    }
+
+    function viewActivityAttendance(activityName) {
+      const activityAttendances = attendances.filter(a => a.activity_name === activityName);
+      const primaryColor = config.primary_color || defaultConfig.primary_color;
+      const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
+      const textColor = config.text_color || defaultConfig.text_color;
+      const surfaceColor = config.surface_color || defaultConfig.surface_color;
+
+      const modalContent = `
+        <div class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4" onclick="closeModal(event)">
+          <div class="rounded-2xl p-6 max-w-6xl w-full max-h-[90vh] overflow-auto" style="background: ${surfaceColor};" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-6">
+              <div>
+                <h2 class="text-2xl font-bold" style="color: ${textColor};">Daftar Absensi</h2>
+                <p class="text-gray-500">${activityName}</p>
+                <p class="text-sm text-gray-500 mt-1">Total Peserta: ${activityAttendances.length} orang</p>
+              </div>
+              <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            ${activityAttendances.length === 0 ? '<p class="text-gray-400 text-center py-8">Belum ada peserta yang absen</p>' : `
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="border-b-2 border-gray-200">
+                      <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">No</th>
+                      <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">Nama</th>
+                      <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">RT</th>
+                      <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">Jabatan</th>
+                      <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">No. Telepon</th>
+                      <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">Waktu Absen</th>
+                      <th class="text-center py-3 px-2 font-semibold" style="color: ${textColor};">Foto</th>
+                      <th class="text-center py-3 px-2 font-semibold" style="color: ${textColor};">TTD</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${activityAttendances.map((att, index) => {
+                      const attendeeUser = users.find(u => u.username === att.user_username);
+                      return `
+                        <tr class="border-b border-gray-100 hover:bg-gray-50">
+                          <td class="py-3 px-2">${index + 1}</td>
+                          <td class="py-3 px-2">
+                            <div class="flex items-center gap-2">
+                              <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold" style="background: ${secondaryColor};">
+                                ${attendeeUser ? attendeeUser.name.charAt(0).toUpperCase() : '?'}
+                              </div>
+                              <span class="font-medium">${attendeeUser ? attendeeUser.name : 'Unknown'}</span>
+                            </div>
+                          </td>
+                          <td class="py-3 px-2 text-gray-600">${attendeeUser ? attendeeUser.rt : '-'}</td>
+                          <td class="py-3 px-2 text-gray-600">${attendeeUser ? attendeeUser.position : '-'}</td>
+                          <td class="py-3 px-2 text-gray-600">${attendeeUser ? attendeeUser.phone : '-'}</td>
+                          <td class="py-3 px-2 text-gray-500 text-xs">${formatDateTime(att.attendance_time)}</td>
+                          <td class="py-3 px-2 text-center">
+                            ${att.attendance_photo ? `
+                              <img src="${att.attendance_photo}" alt="Foto absensi" class="w-12 h-12 rounded-lg object-cover border-2 border-gray-200 mx-auto cursor-pointer" loading="lazy" onerror="this.style.display='none';" onclick="showPhotoModal('${att.attendance_photo}')">
+                            ` : '<span class="text-gray-400">-</span>'}
+                          </td>
+                          <td class="py-3 px-2 text-center">
+                            ${att.signature ? `
+                              <img src="${att.signature}" alt="Tanda tangan" class="w-16 h-10 rounded border border-gray-200 mx-auto cursor-pointer bg-white" loading="lazy" onerror="this.style.display='none';" onclick="showPhotoModal('${att.signature}')">
+                            ` : '<span class="text-gray-400">-</span>'}
+                          </td>
+                        </tr>
+                      `;
+                    }).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `}
+            <div class="mt-6 flex gap-2">
+              <button onclick="printAttendance('${activityName}')" class="flex-1 text-white font-medium py-3 px-6 rounded-xl" style="background: ${secondaryColor};">
+                🖨️ Cetak Daftar Absensi
+              </button>
+              <button onclick="closeModal()" class="flex-1 border-2 font-medium py-3 px-6 rounded-xl hover:bg-gray-50" style="color: ${textColor}; border-color: ${textColor};">
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('modal-container').innerHTML = modalContent;
+    }
+
+    function showPhotoModal(photoUrl) {
+      const surfaceColor = config.surface_color || defaultConfig.surface_color;
+      const modalContent = `
+        <div class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4" onclick="closeModal(event)">
+          <div class="rounded-2xl p-6 max-w-2xl w-full" style="background: ${surfaceColor};" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-xl font-bold">Preview</h3>
+              <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <img src="${photoUrl}" alt="Preview" class="w-full rounded-xl" loading="lazy">
+            <button onclick="closeModal()" class="w-full mt-4 border-2 font-medium py-3 px-6 rounded-xl hover:bg-gray-50">
+              Tutup
+            </button>
+          </div>
+        </div>
+      `;
+      document.getElementById('modal-container').innerHTML = modalContent;
+    }
+
+    function closeModal(event) {
+      if (!event || event.target.classList.contains('modal-overlay')) {
+        document.getElementById('modal-container').innerHTML = '';
+      }
+    }
+
+    function exportUsers() {
+      if (users.length === 0) {
+        showToast('Tidak ada data warga untuk di-export', 'error');
+        return;
+      }
+
+      const appTitle = config.app_title || defaultConfig.app_title;
+      const rwNumber = config.rw_number || defaultConfig.rw_number;
+      const kelurahan = config.kelurahan || defaultConfig.kelurahan;
+
+      let csvContent = `${appTitle} - RW ${rwNumber} - Kelurahan ${kelurahan}\nDAFTAR WARGA TERDAFTAR\nTanggal Export: ${new Date().toLocaleDateString('id-ID')}\n\n`;
+      csvContent += 'No,Nama,Username,RT,Jabatan,No. Telepon,Tanggal Daftar\n';
       
-      // Render data table after DOM is ready
-      setTimeout(renderDataTable, 100);
+      users.forEach((user, index) => {
+        csvContent += `${index + 1},"${user.name}","${user.username}","${user.rt}","${user.position}","${user.phone}","${formatDate(user.registered_at)}"\n`;
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Data_Warga_RW${rwNumber}_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showToast('Data warga berhasil di-export!');
+    }
+
+    function exportActivitiesReport() {
+      if (activities.length === 0) {
+        showToast('Tidak ada data kegiatan untuk di-export', 'error');
+        return;
+      }
+
+      const appTitle = config.app_title || defaultConfig.app_title;
+      const rwNumber = config.rw_number || defaultConfig.rw_number;
+      const kelurahan = config.kelurahan || defaultConfig.kelurahan;
+
+      let csvContent = `${appTitle} - RW ${rwNumber} - Kelurahan ${kelurahan}\nLAPORAN KEGIATAN\nTanggal Export: ${new Date().toLocaleDateString('id-ID')}\n\n`;
+      csvContent += 'No,Nama Kegiatan,Tanggal,Waktu,Lokasi,Status,Jumlah Peserta\n';
+      
+      activities.forEach((act, index) => {
+        const activityAttendances = attendances.filter(a => a.activity_name === act.activity_name);
+        csvContent += `${index + 1},"${act.activity_name}","${formatDate(act.activity_date)}","${act.activity_time || '-'}","${act.activity_location}","${act.activity_status}",${activityAttendances.length}\n`;
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.href = url;
+      link.download = `Laporan_Kegiatan_RW${rwNumber}_${new Date().toISOString().split('T')[0]}.csv`;
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      showToast('Laporan kegiatan berhasil di-export!');
+    }
+
+    function downloadDatabase() {
+      const appTitle = config.app_title || defaultConfig.app_title;
+      const rwNumber = config.rw_number || defaultConfig.rw_number;
+      const kelurahan = config.kelurahan || defaultConfig.kelurahan;
+      
+      const database = {
+        app_info: {
+          app_name: appTitle,
+          rw_number: rwNumber,
+          kelurahan: kelurahan,
+          version: APP_VERSION,
+          export_date: new Date().toISOString(),
+          export_date_readable: new Date().toLocaleString('id-ID')
+        },
+        statistics: {
+          total_users: users.length,
+          total_admins: admins.length,
+          total_activities: activities.length,
+          total_attendances: attendances.length,
+          active_activities: activities.filter(a => a.activity_status === 'aktif').length,
+          completed_activities: activities.filter(a => a.activity_status === 'selesai').length
+        },
+        users: users.map(u => ({
+          name: u.name,
+          username: u.username,
+          rt: u.rt,
+          position: u.position,
+          phone: u.phone,
+          registered_at: u.registered_at
+        })),
+        admins: admins.map(a => ({
+          username: a.username,
+          full_name: a.full_name,
+          email: a.email,
+          role: a.role,
+          registered_at: a.registered_at
+        })),
+        activities: activities.map(act => {
+          const activityAttendances = attendances.filter(att => att.activity_name === act.activity_name);
+          return {
+            activity_name: act.activity_name,
+            activity_date: act.activity_date,
+            activity_time: act.activity_time,
+            activity_location: act.activity_location,
+            activity_status: act.activity_status,
+            created_at: act.created_at,
+            total_attendees: activityAttendances.length,
+            attendees: activityAttendances.map(att => {
+              const user = users.find(u => u.username === att.user_username);
+              return {
+                username: att.user_username,
+                name: user ? user.name : 'Unknown',
+                rt: user ? user.rt : '-',
+                position: user ? user.position : '-',
+                attendance_time: att.attendance_time,
+                has_photo: !!att.attendance_photo,
+                has_signature: !!att.signature
+              };
+            })
+          };
+        }),
+        attendances: attendances.map(att => ({
+          user_username: att.user_username,
+          activity_name: att.activity_name,
+          attendance_time: att.attendance_time,
+          has_photo: !!att.attendance_photo,
+          has_signature: !!att.signature
+        }))
+      };
+
+      try {
+        const jsonString = JSON.stringify(database, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Database_Absensi_RW${rwNumber}_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }, 100);
+        
+        showToast('Database berhasil didownload!');
+      } catch (error) {
+        showToast('Gagal mendownload database', 'error');
+        console.error('Download error:', error);
+      }
+    }
+
+    function printAttendance(activityName) {
+      const activity = activities.find(a => a.activity_name === activityName);
+      const activityAttendances = attendances.filter(a => a.activity_name === activityName);
+      
+      if (activityAttendances.length === 0) {
+        showToast('Tidak ada data absensi untuk dicetak', 'error');
+        return;
+      }
+
+      const appTitle = config.app_title || defaultConfig.app_title;
+      const rwNumber = config.rw_number || defaultConfig.rw_number;
+      const kelurahan = config.kelurahan || defaultConfig.kelurahan;
+
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Daftar Absensi - ${activityName}</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              padding: 20px;
+              max-width: 1200px;
+              margin: 0 auto;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 3px solid #000;
+              padding-bottom: 20px;
+            }
+            .header h1 { margin: 5px 0; font-size: 24px; }
+            .header h2 { margin: 5px 0; font-size: 20px; font-weight: normal; }
+            .header p { margin: 5px 0; font-size: 14px; }
+            .info-box {
+              background: #f5f5f5;
+              padding: 15px;
+              margin-bottom: 20px;
+              border-radius: 8px;
+            }
+            .info-box p { margin: 5px 0; }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin-top: 20px;
+            }
+            th, td { 
+              border: 1px solid #333; 
+              padding: 8px; 
+              text-align: left;
+              font-size: 11px;
+            }
+            th { 
+              background-color: #e5e7eb; 
+              font-weight: bold;
+            }
+            tr:nth-child(even) {
+              background-color: #f9fafb;
+            }
+            .footer {
+              margin-top: 40px;
+              text-align: right;
+            }
+            .signature {
+              margin-top: 80px;
+              border-top: 1px solid #000;
+              display: inline-block;
+              padding-top: 5px;
+            }
+            .signature-img {
+              max-width: 80px;
+              max-height: 40px;
+              border: 1px solid #ddd;
+              background: white;
+            }
+            @media print {
+              button { display: none; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${appTitle}</h1>
+            <h2>RW ${rwNumber} - Kelurahan ${kelurahan}</h2>
+            <p>DAFTAR HADIR KEGIATAN</p>
+          </div>
+          
+          <div class="info-box">
+            <p><strong>Nama Kegiatan:</strong> ${activityName}</p>
+            <p><strong>Tanggal:</strong> ${formatDate(activity.activity_date)} ${activity.activity_time ? `Pukul ${activity.activity_time}` : ''}</p>
+            <p><strong>Lokasi:</strong> ${activity.activity_location}</p>
+            <p><strong>Total Peserta:</strong> ${activityAttendances.length} orang</p>
+            <p><strong>Dicetak:</strong> ${new Date().toLocaleString('id-ID')}</p>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 30px;">No</th>
+                <th>Nama Lengkap</th>
+                <th style="width: 60px;">RT</th>
+                <th>Jabatan/Satuan</th>
+                <th style="width: 100px;">No. Telepon</th>
+                <th style="width: 120px;">Waktu Absen</th>
+                <th style="width: 100px;">Tanda Tangan</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${activityAttendances.map((att, index) => {
+                const attendeeUser = users.find(u => u.username === att.user_username);
+                return `
+                  <tr>
+                    <td style="text-align: center;">${index + 1}</td>
+                    <td>${attendeeUser ? attendeeUser.name : 'Unknown'}</td>
+                    <td>${attendeeUser ? attendeeUser.rt : '-'}</td>
+                    <td>${attendeeUser ? attendeeUser.position : '-'}</td>
+                    <td>${attendeeUser ? attendeeUser.phone : '-'}</td>
+                    <td style="font-size: 10px;">${formatDateTime(att.attendance_time)}</td>
+                    <td style="text-align: center; padding: 4px;">
+                      ${att.signature ? `<img src="${att.signature}" class="signature-img" alt="TTD">` : '-'}
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <p>${kelurahan}, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <p>Ketua RW ${rwNumber}</p>
+            <div class="signature">
+              <p>(_____________________)</p>
+            </div>
+          </div>
+
+          <div class="no-print" style="text-align: center; margin-top: 30px;">
+            <button onclick="window.print()" style="background: #1e3a5f; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; margin-right: 10px;">🖨️ Cetak</button>
+            <button onclick="window.close()" style="background: #6b7280; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">Tutup</button>
+          </div>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+      
+      showToast('Dokumen siap dicetak!');
+    }
+
+    function renderUserDashboard() {
+      const primaryColor = config.primary_color || defaultConfig.primary_color;
+      const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
+      const surfaceColor = config.surface_color || defaultConfig.surface_color;
+      const bgColor = config.background_color || defaultConfig.background_color;
+      const textColor = config.text_color || defaultConfig.text_color;
+
+      const activeActivities = activities.filter(a => a.activity_status === 'aktif');
+      const userAttendances = attendances.filter(a => a.user_username === currentUser.username);
+
+      return `
+        <div class="min-h-full" style="background: ${bgColor};">
+          <div class="gradient-bg text-white px-4 py-6" style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d1b2a 100%);">
+            <div class="container mx-auto flex justify-between items-center">
+              <div>
+                <p class="font-bold">${currentUser.name}</p>
+                <p class="text-sm opacity-80">RT ${currentUser.rt} • ${APP_VERSION}</p>
+              </div>
+              <button onclick="logout()" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg">Keluar</button>
+            </div>
+          </div>
+
+          <div class="container mx-auto px-4 py-6">
+            <div class="rounded-2xl shadow-lg p-6 mb-6" style="background: ${surfaceColor};">
+              <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">👤 Profil Saya</h2>
+                <button onclick="toggleEditProfile()" id="toggle-edit-btn" class="text-sm px-4 py-2 rounded-lg border hover:bg-gray-50" style="color: ${secondaryColor}; border-color: ${secondaryColor};">
+                  ✏️ Edit Profil
+                </button>
+              </div>
+              
+              <div id="profile-view" class="mb-4 hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div class="border rounded-lg p-3">
+                    <p class="text-xs text-gray-500 mb-1">Nama Lengkap</p>
+                    <p class="font-medium" style="color: ${textColor};">${currentUser.name}</p>
+                  </div>
+                  <div class="border rounded-lg p-3">
+                    <p class="text-xs text-gray-500 mb-1">Username</p>
+                    <p class="font-medium" style="color: ${textColor};">${currentUser.username}</p>
+                  </div>
+                  <div class="border rounded-lg p-3">
+                    <p class="text-xs text-gray-500 mb-1">RT</p>
+                    <p class="font-medium" style="color: ${textColor};">${currentUser.rt}</p>
+                  </div>
+                  <div class="border rounded-lg p-3">
+                    <p class="text-xs text-gray-500 mb-1">Jabatan / Satuan</p>
+                    <p class="font-medium" style="color: ${textColor};">${currentUser.position}</p>
+                  </div>
+                  <div class="border rounded-lg p-3 md:col-span-2">
+                    <p class="text-xs text-gray-500 mb-1">No Telepon</p>
+                    <p class="font-medium" style="color: ${textColor};">${currentUser.phone}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div id="profile-edit" class="hidden">
+                <form onsubmit="handleProfileUpdate(event)">
+                  <div class="space-y-4 mb-4">
+                    <div>
+                      <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Nama Lengkap</label>
+                      <input type="text" id="edit-name" required value="${currentUser.name}"
+                        class="input-field w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:outline-none">
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium mb-2" style="color: ${textColor};">RT</label>
+                      <input type="text" id="edit-rt" required value="${currentUser.rt}"
+                        class="input-field w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:outline-none">
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Jabatan / Satuan</label>
+                      <input type="text" id="edit-position" required value="${currentUser.position}"
+                        class="input-field w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:outline-none">
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium mb-2" style="color: ${textColor};">No Telepon</label>
+                      <input type="tel" id="edit-phone" required value="${currentUser.phone}"
+                        class="input-field w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:outline-none">
+                    </div>
+                    <div class="border-t pt-4 mt-4">
+                      <p class="text-sm font-semibold mb-3" style="color: ${textColor};">🔒 Ubah Password (Opsional)</p>
+                      <div class="space-y-3">
+                        <div>
+                          <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Password Baru</label>
+                          <input type="password" id="edit-new-password" minlength="6"
+                            class="input-field w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:outline-none"
+                            placeholder="Kosongkan jika tidak ingin mengubah">
+                        </div>
+                        <div>
+                          <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Konfirmasi Password Baru</label>
+                          <input type="password" id="edit-confirm-password" minlength="6"
+                            class="input-field w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:outline-none"
+                            placeholder="Ulangi password baru">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex gap-2">
+                    <button type="submit" id="save-profile-btn" class="flex-1 text-white font-semibold py-2 px-4 rounded-lg" style="background: ${secondaryColor};">
+                      💾 Simpan Perubahan
+                    </button>
+                    <button type="button" onclick="toggleEditProfile()" class="flex-1 border-2 font-semibold py-2 px-4 rounded-lg hover:bg-gray-50" style="color: ${textColor}; border-color: ${textColor};">
+                      Batal
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <div class="rounded-2xl shadow-lg p-6 mb-6" style="background: ${surfaceColor};">
+              <h2 class="text-xl font-bold mb-6">📅 Kegiatan Aktif</h2>
+              ${activeActivities.length === 0 ? '<p class="text-gray-400 text-center py-8">Tidak ada kegiatan aktif</p>' : `
+                <div class="space-y-4">
+                  ${activeActivities.map(act => {
+                    const attended = userAttendances.find(a => a.activity_name === act.activity_name);
+                    const activityAttendances = attendances.filter(a => a.activity_name === act.activity_name);
+                    return `
+                      <div class="border rounded-xl p-4">
+                        <div class="flex justify-between items-start mb-3">
+                          <div>
+                            <h3 class="font-semibold text-lg">${act.activity_name}</h3>
+                            <p class="text-sm text-gray-500">📅 ${formatDate(act.activity_date)} ${act.activity_time ? `• ⏰ ${act.activity_time}` : ''}</p>
+                            <p class="text-sm text-gray-500">📍 ${act.activity_location}</p>
+                          </div>
+                          <span class="text-xs px-3 py-1 rounded-full" style="background: ${secondaryColor}20; color: ${secondaryColor};">
+                            ${activityAttendances.length} Peserta
+                          </span>
+                        </div>
+                        ${attended ? '<p class="text-green-600 font-medium mb-2">✓ Anda sudah absen</p>' : `
+                          <button onclick="startAttendance('${act.activity_name}')" class="w-full btn-primary text-white font-semibold py-2 px-4 rounded-lg mb-2">
+                            📸 Absen Sekarang
+                          </button>
+                        `}
+                        <button onclick="toggleAttendeeList('${act.activity_name.replace(/\s+/g, '-').replace(/'/g, '')}')" class="w-full text-sm py-2 px-4 rounded-lg border border-gray-300 hover:bg-gray-50" style="color: ${textColor};">
+                          👥 Lihat Daftar Peserta
+                        </button>
+                        <div id="attendee-list-${act.activity_name.replace(/\s+/g, '-').replace(/'/g, '')}" class="hidden mt-4 border-t pt-4">
+                          ${activityAttendances.length === 0 ? '<p class="text-gray-400 text-sm text-center py-4">Belum ada peserta yang absen</p>' : `
+                            <div class="overflow-x-auto">
+                              <table class="w-full text-sm">
+                                <thead>
+                                  <tr class="border-b-2 border-gray-200">
+                                    <th class="text-left py-2 px-2 font-semibold" style="color: ${textColor};">Nama</th>
+                                    <th class="text-left py-2 px-2 font-semibold" style="color: ${textColor};">RT</th>
+                                    <th class="text-left py-2 px-2 font-semibold" style="color: ${textColor};">Jabatan</th>
+                                    <th class="text-left py-2 px-2 font-semibold" style="color: ${textColor};">Waktu</th>
+                                    <th class="text-center py-2 px-2 font-semibold" style="color: ${textColor};">Foto</th>
+                                    <th class="text-center py-2 px-2 font-semibold" style="color: ${textColor};">TTD</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  ${activityAttendances.map(att => {
+                                    const attendeeUser = users.find(u => u.username === att.user_username);
+                                    const isCurrentUser = att.user_username === currentUser.username;
+                                    return `
+                                      <tr class="border-b border-gray-100 hover:bg-gray-50 ${isCurrentUser ? 'bg-green-50' : ''}">
+                                        <td class="py-3 px-2">
+                                          <div class="flex items-center gap-2">
+                                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0" style="background: ${secondaryColor};">
+                                              ${attendeeUser ? attendeeUser.name.charAt(0).toUpperCase() : '?'}
+                                            </div>
+                                            <span class="font-medium truncate" style="color: ${textColor};">
+                                              ${attendeeUser ? attendeeUser.name : 'Unknown'}
+                                              ${isCurrentUser ? '<span class="text-green-600 text-xs ml-1">(Anda)</span>' : ''}
+                                            </span>
+                                          </div>
+                                        </td>
+                                        <td class="py-3 px-2 text-gray-600">${attendeeUser ? attendeeUser.rt : '-'}</td>
+                                        <td class="py-3 px-2 text-gray-600">${attendeeUser ? attendeeUser.position : '-'}</td>
+                                        <td class="py-3 px-2 text-xs text-gray-500">${formatDateTime(att.attendance_time)}</td>
+                                        <td class="py-3 px-2 text-center">
+                                          ${att.attendance_photo ? `
+                                            <img src="${att.attendance_photo}" alt="Foto absensi" class="w-10 h-10 rounded-lg object-cover border-2 border-gray-200 mx-auto" loading="lazy" onerror="this.style.display='none';">
+                                          ` : '<span class="text-gray-400">-</span>'}
+                                        </td>
+                                        <td class="py-3 px-2 text-center">
+                                          ${att.signature ? `
+                                            <img src="${att.signature}" alt="Tanda tangan" class="w-12 h-8 rounded border border-gray-200 mx-auto bg-white" loading="lazy" onerror="this.style.display='none';">
+                                          ` : '<span class="text-gray-400">-</span>'}
+                                        </td>
+                                      </tr>
+                                    `;
+                                  }).join('')}
+                                </tbody>
+                              </table>
+                            </div>
+                          `}
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              `}
+            </div>
+
+            <div class="rounded-2xl shadow-lg p-6" style="background: ${surfaceColor};">
+              <h2 class="text-xl font-bold mb-4">📋 Riwayat Kehadiran Saya</h2>
+              ${userAttendances.length === 0 ? '<p class="text-gray-400 text-center py-8">Belum ada riwayat absensi</p>' : `
+                <div class="space-y-3">
+                  ${userAttendances.map(att => {
+                    const activity = activities.find(a => a.activity_name === att.activity_name);
+                    return `
+                      <div class="border rounded-lg p-3 flex items-center justify-between">
+                        <div>
+                          <p class="font-medium text-sm" style="color: ${textColor};">${att.activity_name}</p>
+                          <p class="text-xs text-gray-500">${formatDateTime(att.attendance_time)}</p>
+                        </div>
+                        <span class="status-badge ${activity && activity.activity_status === 'aktif' ? 'status-aktif' : 'status-selesai'}">
+                          ✓ Hadir
+                        </span>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              `}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function toggleAttendeeList(activityId) {
+      const listElement = document.getElementById('attendee-list-' + activityId);
+      if (listElement) {
+        listElement.classList.toggle('hidden');
+      }
+    }
+
+    function toggleEditProfile() {
+      const viewElement = document.getElementById('profile-view');
+      const editElement = document.getElementById('profile-edit');
+      const btnElement = document.getElementById('toggle-edit-btn');
+      
+      if (viewElement && editElement && btnElement) {
+        viewElement.classList.toggle('hidden');
+        editElement.classList.toggle('hidden');
+        
+        if (editElement.classList.contains('hidden')) {
+          btnElement.textContent = '✏️ Edit Profil';
+        } else {
+          btnElement.textContent = '❌ Tutup';
+        }
+      }
+    }
+
+    async function handleProfileUpdate(e) {
+      e.preventDefault();
+      const btn = document.getElementById('save-profile-btn');
+      const name = document.getElementById('edit-name').value.trim();
+      const rt = document.getElementById('edit-rt').value.trim();
+      const position = document.getElementById('edit-position').value.trim();
+      const phone = document.getElementById('edit-phone').value.trim();
+      const newPassword = document.getElementById('edit-new-password').value;
+      const confirmPassword = document.getElementById('edit-confirm-password').value;
+
+      if (newPassword || confirmPassword) {
+        if (newPassword !== confirmPassword) {
+          showToast('Password baru dan konfirmasi tidak cocok!', 'error');
+          return;
+        }
+        if (newPassword.length < 6) {
+          showToast('Password minimal 6 karakter!', 'error');
+          return;
+        }
+      }
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Menyimpan...';
+
+      const updateData = {
+        ...currentUser,
+        name,
+        rt,
+        position,
+        phone
+      };
+
+      if (newPassword) {
+        updateData.password = newPassword;
+      }
+
+      const result = await window.dataSdk.update(updateData);
+
+      if (result.isOk) {
+        showToast(newPassword ? 'Profil dan password berhasil diperbarui!' : 'Profil berhasil diperbarui!');
+        toggleEditProfile();
+      } else {
+        showToast('Gagal memperbarui profil', 'error');
+        btn.disabled = false;
+        btn.textContent = '💾 Simpan Perubahan';
+      }
     }
 
     function renderActivityForm() {
       const primaryColor = config.primary_color || defaultConfig.primary_color;
-      const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
       const textColor = config.text_color || defaultConfig.text_color;
       const surfaceColor = config.surface_color || defaultConfig.surface_color;
 
@@ -1112,46 +1516,38 @@
 
       return `
         <div class="min-h-full gradient-bg flex items-center justify-center p-4" style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d1b2a 100%);">
-          <div class="card-glass rounded-2xl p-8 w-full max-w-md shadow-xl" style="background: ${surfaceColor};">
+          <div class="card-glass rounded-2xl p-8 w-full max-w-md" style="background: ${surfaceColor};">
             <button onclick="editingActivity = null; navigate('admin-dashboard')" class="mb-6 flex items-center text-gray-500 hover:text-gray-700">
-              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-              </svg>
-              Kembali
+              ← Kembali
             </button>
             
-            <div class="text-center mb-6">
-              <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style="background: linear-gradient(135deg, ${secondaryColor} 0%, #d97706 100%);">
-                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                </svg>
-              </div>
-              <h2 class="text-2xl font-bold" style="color: ${textColor};">${isEdit ? 'Edit Kegiatan' : 'Tambah Kegiatan Baru'}</h2>
-            </div>
+            <h2 class="text-2xl font-bold mb-6" style="color: ${textColor};">${isEdit ? 'Edit Kegiatan' : 'Tambah Kegiatan'}</h2>
 
-            <form id="activity-form" onsubmit="handleActivitySubmit(event)">
+            <form onsubmit="handleActivitySubmit(event)">
               <input type="hidden" id="activity-id" value="${isEdit ? act.__backendId : ''}">
               <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="activity-name">Nama Kegiatan</label>
-                <input type="text" id="activity-name" name="name" required
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  placeholder="Contoh: Kerja Bakti" value="${isEdit ? act.activity_name : ''}">
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Nama Kegiatan</label>
+                <input type="text" id="activity-name" required value="${isEdit ? act.activity_name : ''}"
+                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none">
               </div>
               <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="activity-date">Tanggal</label>
-                <input type="date" id="activity-date" name="date" required
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  value="${isEdit ? act.activity_date : ''}">
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Tanggal</label>
+                <input type="date" id="activity-date" required value="${isEdit ? act.activity_date : ''}"
+                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none">
               </div>
               <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="activity-location">Lokasi</label>
-                <input type="text" id="activity-location" name="location" required
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  placeholder="Contoh: Lapangan RT 03" value="${isEdit ? act.activity_location : ''}">
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Waktu</label>
+                <input type="time" id="activity-time" value="${isEdit && act.activity_time ? act.activity_time : ''}"
+                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none">
+              </div>
+              <div class="mb-4">
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Lokasi</label>
+                <input type="text" id="activity-location" required value="${isEdit ? act.activity_location : ''}"
+                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none">
               </div>
               <div class="mb-6">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="activity-status">Status</label>
-                <select id="activity-status" name="status" required
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Status</label>
+                <select id="activity-status" required
                   class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none">
                   <option value="aktif" ${isEdit && act.activity_status === 'aktif' ? 'selected' : ''}>Aktif</option>
                   <option value="selesai" ${isEdit && act.activity_status === 'selesai' ? 'selected' : ''}>Selesai</option>
@@ -1159,7 +1555,7 @@
                 </select>
               </div>
               <button type="submit" id="activity-btn" class="w-full btn-primary text-white font-semibold py-3 px-6 rounded-xl">
-                ${isEdit ? 'Simpan Perubahan' : 'Tambah Kegiatan'}
+                ${isEdit ? 'Simpan' : 'Tambah'}
               </button>
             </form>
           </div>
@@ -1173,6 +1569,7 @@
       const id = document.getElementById('activity-id').value;
       const name = document.getElementById('activity-name').value.trim();
       const date = document.getElementById('activity-date').value;
+      const time = document.getElementById('activity-time').value;
       const location = document.getElementById('activity-location').value.trim();
       const status = document.getElementById('activity-status').value;
 
@@ -1186,20 +1583,16 @@
           ...existing,
           activity_name: name,
           activity_date: date,
+          activity_time: time,
           activity_location: location,
           activity_status: status
         });
       } else {
-        if (activities.length >= 999) {
-          showToast('Batas maksimum kegiatan tercapai', 'error');
-          btn.disabled = false;
-          btn.textContent = 'Tambah Kegiatan';
-          return;
-        }
         result = await window.dataSdk.create({
           type: 'activity',
           activity_name: name,
           activity_date: date,
+          activity_time: time,
           activity_location: location,
           activity_status: status,
           created_at: new Date().toISOString()
@@ -1207,13 +1600,13 @@
       }
 
       if (result.isOk) {
-        showToast(id ? 'Kegiatan berhasil diperbarui!' : 'Kegiatan berhasil ditambahkan!');
+        showToast('Kegiatan berhasil disimpan!');
         editingActivity = null;
         navigate('admin-dashboard');
       } else {
-        showToast('Gagal menyimpan kegiatan', 'error');
+        showToast('Gagal menyimpan', 'error');
         btn.disabled = false;
-        btn.textContent = id ? 'Simpan Perubahan' : 'Tambah Kegiatan';
+        btn.textContent = id ? 'Simpan' : 'Tambah';
       }
     }
 
@@ -1222,25 +1615,29 @@
       navigate('activity-form');
     }
 
-    function confirmDeleteActivity(id) {
-      const modal = document.getElementById('modal-container');
+    function deleteActivityConfirm(id) {
       const act = activities.find(a => a.__backendId === id);
-      modal.innerHTML = `
-        <div class="modal-overlay fixed inset-0 flex items-center justify-center z-50 p-4">
-          <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 class="text-lg font-bold text-gray-800 mb-2">Hapus Kegiatan?</h3>
-            <p class="text-gray-600 mb-6">Apakah Anda yakin ingin menghapus kegiatan "<strong>${act.activity_name}</strong>"?</p>
-            <div class="flex gap-3">
-              <button onclick="closeModal()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg transition">
-                Batal
-              </button>
-              <button onclick="deleteActivity('${id}')" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition">
+      const primaryColor = config.primary_color || defaultConfig.primary_color;
+      const textColor = config.text_color || defaultConfig.text_color;
+      const surfaceColor = config.surface_color || defaultConfig.surface_color;
+
+      const modalContent = `
+        <div class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4" onclick="closeModal(event)">
+          <div class="rounded-2xl p-6 max-w-md w-full" style="background: ${surfaceColor};" onclick="event.stopPropagation()">
+            <h3 class="text-xl font-bold mb-4" style="color: ${textColor};">Konfirmasi Hapus</h3>
+            <p class="text-gray-600 mb-6">Apakah Anda yakin ingin menghapus kegiatan "${act.activity_name}"?</p>
+            <div class="flex gap-2">
+              <button onclick="deleteActivity('${id}')" class="flex-1 bg-red-500 text-white font-medium py-2 px-4 rounded-lg hover:bg-red-600">
                 Hapus
+              </button>
+              <button onclick="closeModal()" class="flex-1 border-2 font-medium py-2 px-4 rounded-lg hover:bg-gray-50" style="color: ${textColor}; border-color: ${textColor};">
+                Batal
               </button>
             </div>
           </div>
         </div>
       `;
+      document.getElementById('modal-container').innerHTML = modalContent;
     }
 
     async function deleteActivity(id) {
@@ -1248,183 +1645,10 @@
       const result = await window.dataSdk.delete(act);
       if (result.isOk) {
         showToast('Kegiatan berhasil dihapus');
+        closeModal();
       } else {
-        showToast('Gagal menghapus kegiatan', 'error');
+        showToast('Gagal menghapus', 'error');
       }
-      closeModal();
-    }
-
-    function confirmDeleteUser(id) {
-      const modal = document.getElementById('modal-container');
-      const user = users.find(u => u.__backendId === id);
-      modal.innerHTML = `
-        <div class="modal-overlay fixed inset-0 flex items-center justify-center z-50 p-4">
-          <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 class="text-lg font-bold text-gray-800 mb-2">Hapus Warga?</h3>
-            <p class="text-gray-600 mb-6">Apakah Anda yakin ingin menghapus data "<strong>${user.name}</strong>"?</p>
-            <div class="flex gap-3">
-              <button onclick="closeModal()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg transition">
-                Batal
-              </button>
-              <button onclick="deleteUser('${id}')" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition">
-                Hapus
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    async function deleteUser(id) {
-      const user = users.find(u => u.__backendId === id);
-      const result = await window.dataSdk.delete(user);
-      if (result.isOk) {
-        showToast('Data warga berhasil dihapus');
-      } else {
-        showToast('Gagal menghapus data warga', 'error');
-      }
-      closeModal();
-    }
-
-    function closeModal() {
-      document.getElementById('modal-container').innerHTML = '';
-    }
-
-    function renderUserDashboard() {
-      const primaryColor = config.primary_color || defaultConfig.primary_color;
-      const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
-      const textColor = config.text_color || defaultConfig.text_color;
-      const surfaceColor = config.surface_color || defaultConfig.surface_color;
-      const bgColor = config.background_color || defaultConfig.background_color;
-      const appTitle = config.app_title || defaultConfig.app_title;
-
-      const activeActivities = activities.filter(a => a.activity_status === 'aktif');
-      const userAttendances = attendances.filter(a => a.user_username === currentUser.username);
-
-      return `
-        <div class="min-h-full" style="background: ${bgColor};">
-          <!-- Header -->
-          <div class="gradient-bg text-white px-4 py-6" style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d1b2a 100%);">
-            <div class="container mx-auto flex justify-between items-center">
-              <div class="flex items-center gap-4">
-                <img src="${currentUser.photo || 'data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 viewBox%3D%220 0 24 24%22 fill%3D%22%23fff%22%3E%3Cpath d%3D%22M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z%22%2F%3E%3C%2Fsvg%3E'}" 
-                  class="w-12 h-12 rounded-full object-cover border-2 border-white/50" alt="${currentUser.name}">
-                <div>
-                  <p class="font-bold">${currentUser.name}</p>
-                  <p class="text-sm opacity-80">RT ${currentUser.rt}</p>
-                </div>
-              </div>
-              <button onclick="logout()" class="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                </svg>
-                Keluar
-              </button>
-            </div>
-          </div>
-
-          <div class="container mx-auto px-4 py-6">
-            <!-- Stats -->
-            <div class="grid grid-cols-2 gap-4 mb-8">
-              <div class="rounded-xl p-4 text-white" style="background: linear-gradient(135deg, ${secondaryColor} 0%, #d97706 100%);">
-                <p class="text-sm opacity-80">Kegiatan Diikuti</p>
-                <p class="text-3xl font-bold">${userAttendances.length}</p>
-              </div>
-              <div class="rounded-xl p-4" style="background: ${surfaceColor}; color: ${textColor};">
-                <p class="text-sm opacity-60">Kegiatan Aktif</p>
-                <p class="text-3xl font-bold" style="color: #059669;">${activeActivities.length}</p>
-              </div>
-            </div>
-
-            <!-- Active Activities -->
-            <div class="rounded-2xl shadow-lg p-6 mb-8" style="background: ${surfaceColor};">
-              <h2 class="text-xl font-bold mb-6" style="color: ${textColor};">📅 Kegiatan Aktif</h2>
-              
-              ${activeActivities.length === 0 ? `
-                <div class="text-center py-12 text-gray-400">
-                  <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                  </svg>
-                  <p>Tidak ada kegiatan aktif saat ini</p>
-                </div>
-              ` : `
-                <div class="space-y-4">
-                  ${activeActivities.map(act => {
-                    const alreadyAttended = userAttendances.find(a => a.activity_name === act.activity_name);
-                    return `
-                      <div class="border rounded-xl p-4">
-                        <div class="flex justify-between items-start mb-3">
-                          <div>
-                            <h3 class="font-semibold text-lg" style="color: ${textColor};">${act.activity_name}</h3>
-                            <p class="text-sm text-gray-500">📅 ${formatDate(act.activity_date)}</p>
-                            <p class="text-sm text-gray-500">📍 ${act.activity_location}</p>
-                          </div>
-                          <span class="status-badge status-aktif">Aktif</span>
-                        </div>
-                        ${alreadyAttended ? `
-                          <div class="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-lg">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                            </svg>
-                            <span class="font-medium">Sudah absen pada ${formatDateTime(alreadyAttended.attendance_time)}</span>
-                          </div>
-                        ` : `
-                          <button onclick="startAttendance('${act.activity_name}')" class="w-full btn-primary text-white font-semibold py-3 px-6 rounded-xl flex items-center justify-center gap-2">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
-                            </svg>
-                            Absen Sekarang
-                          </button>
-                        `}
-                      </div>
-                    `;
-                  }).join('')}
-                </div>
-              `}
-            </div>
-
-            <!-- Attendance History -->
-            <div class="rounded-2xl shadow-lg p-6" style="background: ${surfaceColor};">
-              <h2 class="text-xl font-bold mb-6" style="color: ${textColor};">�� Riwayat Absensi</h2>
-              
-              ${userAttendances.length === 0 ? `
-                <div class="text-center py-12 text-gray-400">
-                  <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                  </svg>
-                  <p>Belum ada riwayat absensi</p>
-                </div>
-              ` : `
-                <div class="space-y-3">
-                  ${userAttendances.map(att => `
-                    <div class="flex items-center gap-4 border rounded-xl p-4">
-                      <img src="${att.attendance_photo || currentUser.photo}" class="w-12 h-12 rounded-lg object-cover" alt="Foto absensi">
-                      <div class="flex-1">
-                        <p class="font-semibold" style="color: ${textColor};">${att.activity_name}</p>
-                        <p class="text-sm text-gray-500">${formatDateTime(att.attendance_time)}</p>
-                      </div>
-                      <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                      </svg>
-                    </div>
-                  `).join('')}
-                </div>
-              `}
-            </div>
-          </div>
-        </div>
-      `;
-      
-      // Render data table after DOM is ready
-      setTimeout(renderDataTable, 100);
-    }
-
-    let selectedActivity = null;
-
-    function startAttendance(activityName) {
-      selectedActivity = activityName;
-      navigate('attendance');
     }
 
     function renderAttendance() {
@@ -1435,12 +1659,9 @@
 
       return `
         <div class="min-h-full gradient-bg flex items-center justify-center p-4" style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d1b2a 100%);">
-          <div class="card-glass rounded-2xl p-8 w-full max-w-md shadow-xl" style="background: ${surfaceColor};">
-            <button onclick="navigate('user-dashboard')" class="mb-6 flex items-center text-gray-500 hover:text-gray-700">
-              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-              </svg>
-              Kembali
+          <div class="card-glass rounded-2xl p-8 w-full max-w-md" style="background: ${surfaceColor};">
+            <button onclick="navigate('user-dashboard')" class="mb-6 flex items-center text-gray-500">
+              ← Kembali
             </button>
             
             <div class="text-center mb-6">
@@ -1449,47 +1670,50 @@
             </div>
 
             <div class="mb-6">
-              <div id="attendance-camera-container" class="camera-container bg-gray-900 rounded-xl overflow-hidden" style="height: 300px;">
+              <div class="camera-container bg-gray-900 rounded-xl" style="height: 300px;">
                 <video id="attendance-video" autoplay playsinline class="w-full h-full object-cover"></video>
-                <div class="camera-overlay" id="attendance-camera-overlay">
-                  <div class="face-guide"></div>
-                </div>
               </div>
               <canvas id="attendance-canvas" class="hidden"></canvas>
               <div id="attendance-preview" class="hidden mt-4">
-                <img id="attendance-preview-img" class="w-full rounded-xl" alt="Preview foto absensi">
+                <img id="attendance-preview-img" class="w-full rounded-xl">
               </div>
             </div>
 
-            <div class="space-y-3">
-              <button type="button" onclick="captureAttendancePhoto()" id="capture-btn" class="w-full text-white font-semibold py-3 px-6 rounded-xl flex items-center justify-center gap-2" style="background: ${secondaryColor};">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
-                </svg>
-                Ambil Foto
-              </button>
-              <button type="button" onclick="submitAttendance()" id="submit-attendance-btn" class="w-full btn-primary text-white font-semibold py-3 px-6 rounded-xl hidden">
-                ✓ Konfirmasi Absensi
+            <div id="signature-section" class="hidden mb-6">
+              <label class="block text-sm font-medium mb-2" style="color: ${textColor};">✍️ Tanda Tangan Digital</label>
+              <div class="border-2 border-gray-300 rounded-xl overflow-hidden bg-white">
+                <canvas id="signature-canvas" width="400" height="150" class="w-full cursor-crosshair" style="touch-action: none;"></canvas>
+              </div>
+              <button onclick="clearSignature()" class="w-full mt-2 text-sm py-2 px-4 rounded-lg border border-gray-300 hover:bg-gray-50" style="color: ${textColor};">
+                🗑️ Hapus Tanda Tangan
               </button>
             </div>
+
+            <button onclick="captureAttendancePhoto()" id="capture-btn" class="w-full text-white font-semibold py-3 px-6 rounded-xl mb-3" style="background: ${secondaryColor};">
+              📸 Ambil Foto
+            </button>
+            <button onclick="submitAttendance()" id="submit-btn" class="w-full btn-primary text-white font-semibold py-3 px-6 rounded-xl hidden">
+              ✓ Konfirmasi Absensi
+            </button>
           </div>
         </div>
       `;
+    }
+
+    function startAttendance(activityName) {
+      selectedActivity = activityName;
+      navigate('attendance');
     }
 
     async function startCamera() {
       try {
         const video = document.getElementById('attendance-video');
         if (video) {
-          videoStream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'user', width: 640, height: 480 } 
-          });
+          videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
           video.srcObject = videoStream;
-          showToast('Kamera aktif! Posisikan wajah di dalam bingkai.');
         }
       } catch (err) {
-        showToast('Gagal mengakses kamera. Pastikan izin kamera diberikan.', 'error');
+        showToast('Gagal mengakses kamera', 'error');
       }
     }
 
@@ -1500,7 +1724,67 @@
       }
     }
 
-    let capturedAttendancePhoto = null;
+    function initSignatureCanvas() {
+      signatureCanvas = document.getElementById('signature-canvas');
+      if (!signatureCanvas) return;
+      
+      signatureCtx = signatureCanvas.getContext('2d');
+      signatureCtx.strokeStyle = '#000';
+      signatureCtx.lineWidth = 2;
+      signatureCtx.lineCap = 'round';
+      
+      signatureCanvas.addEventListener('mousedown', startDrawing);
+      signatureCanvas.addEventListener('mousemove', draw);
+      signatureCanvas.addEventListener('mouseup', stopDrawing);
+      signatureCanvas.addEventListener('mouseout', stopDrawing);
+      
+      signatureCanvas.addEventListener('touchstart', handleTouchStart);
+      signatureCanvas.addEventListener('touchmove', handleTouchMove);
+      signatureCanvas.addEventListener('touchend', stopDrawing);
+    }
+
+    function startDrawing(e) {
+      isDrawing = true;
+      const rect = signatureCanvas.getBoundingClientRect();
+      signatureCtx.beginPath();
+      signatureCtx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    }
+
+    function draw(e) {
+      if (!isDrawing) return;
+      const rect = signatureCanvas.getBoundingClientRect();
+      signatureCtx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+      signatureCtx.stroke();
+    }
+
+    function stopDrawing() {
+      isDrawing = false;
+    }
+
+    function handleTouchStart(e) {
+      e.preventDefault();
+      isDrawing = true;
+      const rect = signatureCanvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      signatureCtx.beginPath();
+      signatureCtx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+    }
+
+    function handleTouchMove(e) {
+      e.preventDefault();
+      if (!isDrawing) return;
+      const rect = signatureCanvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      signatureCtx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
+      signatureCtx.stroke();
+    }
+
+    function clearSignature() {
+      if (signatureCtx && signatureCanvas) {
+        signatureCtx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+      }
+      capturedSignature = null;
+    }
 
     function captureAttendancePhoto() {
       const video = document.getElementById('attendance-video');
@@ -1513,76 +1797,86 @@
       
       capturedAttendancePhoto = canvas.toDataURL('image/jpeg', 0.7);
       
-      const preview = document.getElementById('attendance-preview');
       document.getElementById('attendance-preview-img').src = capturedAttendancePhoto;
-      preview.classList.remove('hidden');
+      document.getElementById('attendance-preview').classList.remove('hidden');
+      document.getElementById('signature-section').classList.remove('hidden');
+      document.getElementById('submit-btn').classList.remove('hidden');
       
-      document.getElementById('attendance-camera-overlay').style.display = 'none';
-      document.getElementById('submit-attendance-btn').classList.remove('hidden');
-      
-      showToast('Foto berhasil diambil! Klik konfirmasi untuk absen.');
+      showToast('Foto berhasil diambil! Silakan tanda tangan.');
     }
 
     async function submitAttendance() {
       if (!capturedAttendancePhoto) {
-        showToast('Silakan ambil foto terlebih dahulu', 'error');
+        showToast('Ambil foto terlebih dahulu', 'error');
         return;
       }
 
-      const btn = document.getElementById('submit-attendance-btn');
-      btn.disabled = true;
-      btn.textContent = 'Memproses...';
+      const canvas = document.getElementById('signature-canvas');
+      if (!canvas) {
+        showToast('Canvas tanda tangan tidak tersedia', 'error');
+        return;
+      }
+
+      const ctx = canvas.getContext('2d');
+      const signatureData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const isSignatureEmpty = !signatureData.data.some(channel => channel !== 0);
+      
+      if (isSignatureEmpty) {
+        showToast('Silakan buat tanda tangan terlebih dahulu', 'error');
+        return;
+      }
+
+      capturedSignature = canvas.toDataURL('image/png');
 
       if (attendances.length >= 999) {
-        showToast('Batas maksimum data tercapai', 'error');
-        btn.disabled = false;
-        btn.textContent = '✓ Konfirmasi Absensi';
+        showToast('Batas maksimum absensi tercapai', 'error');
         return;
       }
+
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.textContent = 'Memproses...';
 
       const result = await window.dataSdk.create({
         type: 'attendance',
         user_username: currentUser.username,
         activity_name: selectedActivity,
         attendance_photo: capturedAttendancePhoto,
+        signature: capturedSignature,
         attendance_time: new Date().toISOString()
       });
 
       if (result.isOk) {
-        showToast('Absensi berhasil dicatat!');
+        showToast('Absensi berhasil!');
         stopCamera();
         capturedAttendancePhoto = null;
-        selectedActivity = null;
+        capturedSignature = null;
         navigate('user-dashboard');
       } else {
-        showToast('Gagal mencatat absensi', 'error');
+        showToast('Gagal absensi. Silakan coba lagi.', 'error');
         btn.disabled = false;
         btn.textContent = '✓ Konfirmasi Absensi';
       }
     }
 
-    // Utility Functions
+    function renderDataTable() {
+      // Placeholder for data table rendering
+    }
+
     function formatDate(dateStr) {
       if (!dateStr) return '-';
       const date = new Date(dateStr);
-      return date.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
     }
 
     function formatDateTime(dateStr) {
       if (!dateStr) return '-';
       const date = new Date(dateStr);
-      return date.toLocaleDateString('id-ID', { 
-        day: 'numeric', 
-        month: 'short', 
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      return date.toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     }
 
     // Initialize
     initApp();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c17d21946e8960c',t:'MTc2OTAwOTA5MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c18fac8416cfce4',t:'MTc2OTAyMTI0Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
-
