@@ -109,6 +109,24 @@
       background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
       border: 1px solid rgba(255,255,255,0.1);
     }
+    .data-tab:hover {
+      background: rgba(245, 158, 11, 0.1);
+      color: #f59e0b;
+    }
+    .data-tab.active {
+      border-bottom-color: #f59e0b;
+      color: #f59e0b;
+      font-weight: 600;
+    }
+    .data-table {
+      font-size: 0.875rem;
+    }
+    .data-table th {
+      position: sticky;
+      top: 0;
+      background: #f9fafb;
+      z-index: 10;
+    }
   </style>
   <style>@view-transition { navigation: auto; }</style>
  </head>
@@ -141,6 +159,7 @@
     let attendances = [];
     let videoStream = null;
     let editingActivity = null;
+    let currentDataTab = 'users';
 
     // Data Handler
     const dataHandler = {
@@ -512,20 +531,21 @@
               </div>
               
               <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="reg-rt-select">RT / Lainnya</label>
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="reg-rt-select">RT / SATUAN / Lainnya</label>
                 <select id="reg-rt-select" name="rt_select" required onchange="toggleRtInput()"
                   class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none">
-                  <option value="">Pilih RT atau Lainnya</option>
-                  ${[1,2,3,4,5,6,7,8,9,10].map(rt => `<option value="RT ${rt.toString().padStart(2,'0')}">RT ${rt.toString().padStart(2,'0')}</option>`).join('')}
+                  <option value="">Pilih RT, SATUAN, atau Lainnya</option>
+                  ${[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16].map(rt => `<option value="RT ${rt.toString().padStart(2,'0')}">RT ${rt.toString().padStart(2,'0')}</option>`).join('')}
+                  <option value="SATUAN">SATUAN</option>
                   <option value="lainnya">Lainnya (ketik manual)</option>
                 </select>
               </div>
               
               <div id="reg-rt-custom-container" class="mb-4 hidden">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="reg-rt-custom">Ketik RT / Lainnya</label>
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="reg-rt-custom">Ketik RT / SATUAN / Lainnya</label>
                 <input type="text" id="reg-rt-custom" name="rt_custom"
                   class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  placeholder="Contoh: RT 15, Pengurus, dll">
+                  placeholder="Contoh: RT 17, Pengurus, dll">
               </div>
               
               <!-- Camera for Photo -->
@@ -676,6 +696,208 @@
 
 
 
+    // Data Table Functions
+    function switchDataTab(tab) {
+      currentDataTab = tab;
+      renderDataTable();
+    }
+
+    function renderDataTable() {
+      const container = document.getElementById('data-table-container');
+      const textColor = config.text_color || defaultConfig.text_color;
+      
+      // Update tab styles
+      document.querySelectorAll('.data-tab').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.getElementById(`tab-${currentDataTab}`).classList.add('active');
+
+      if (currentDataTab === 'users') {
+        container.innerHTML = renderUsersTable(textColor);
+      } else if (currentDataTab === 'activities') {
+        container.innerHTML = renderActivitiesTable(textColor);
+      } else if (currentDataTab === 'attendances') {
+        container.innerHTML = renderAttendancesTable(textColor);
+      }
+    }
+
+    function renderUsersTable(textColor) {
+      if (users.length === 0) {
+        return `<div class="text-center py-8 text-gray-400">Belum ada data warga</div>`;
+      }
+      return `
+        <div class="max-h-96 overflow-y-auto">
+          <table class="w-full data-table">
+            <thead>
+              <tr class="border-b-2" style="color: ${textColor};">
+                <th class="text-left py-3 px-3 font-semibold">Nama Lengkap</th>
+                <th class="text-left py-3 px-3 font-semibold">Username</th>
+                <th class="text-left py-3 px-3 font-semibold">RT</th>
+                <th class="text-left py-3 px-3 font-semibold">Terdaftar</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${users.map(user => `
+                <tr class="border-b hover:bg-gray-50" style="color: ${textColor};">
+                  <td class="py-2 px-3">${user.name}</td>
+                  <td class="py-2 px-3">@${user.username}</td>
+                  <td class="py-2 px-3">${user.rt}</td>
+                  <td class="py-2 px-3">${formatDateTime(user.registered_at)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderActivitiesTable(textColor) {
+      if (activities.length === 0) {
+        return `<div class="text-center py-8 text-gray-400">Belum ada data kegiatan</div>`;
+      }
+      return `
+        <div class="max-h-96 overflow-y-auto">
+          <table class="w-full data-table">
+            <thead>
+              <tr class="border-b-2" style="color: ${textColor};">
+                <th class="text-left py-3 px-3 font-semibold">Nama Kegiatan</th>
+                <th class="text-left py-3 px-3 font-semibold">Tanggal</th>
+                <th class="text-left py-3 px-3 font-semibold">Lokasi</th>
+                <th class="text-left py-3 px-3 font-semibold">Status</th>
+                <th class="text-left py-3 px-3 font-semibold">Dibuat</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${activities.map(act => `
+                <tr class="border-b hover:bg-gray-50" style="color: ${textColor};">
+                  <td class="py-2 px-3">${act.activity_name}</td>
+                  <td class="py-2 px-3">${formatDate(act.activity_date)}</td>
+                  <td class="py-2 px-3">${act.activity_location}</td>
+                  <td class="py-2 px-3"><span class="status-badge status-${act.activity_status}">${act.activity_status}</span></td>
+                  <td class="py-2 px-3">${formatDateTime(act.created_at)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderAttendancesTable(textColor) {
+      if (attendances.length === 0) {
+        return `<div class="text-center py-8 text-gray-400">Belum ada data absensi</div>`;
+      }
+      return `
+        <div class="max-h-96 overflow-y-auto">
+          <table class="w-full data-table">
+            <thead>
+              <tr class="border-b-2" style="color: ${textColor};">
+                <th class="text-left py-3 px-3 font-semibold">Username</th>
+                <th class="text-left py-3 px-3 font-semibold">Nama Warga</th>
+                <th class="text-left py-3 px-3 font-semibold">Kegiatan</th>
+                <th class="text-left py-3 px-3 font-semibold">Waktu Absensi</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${attendances.map(att => {
+                const user = users.find(u => u.username === att.user_username);
+                return `
+                  <tr class="border-b hover:bg-gray-50" style="color: ${textColor};">
+                    <td class="py-2 px-3">@${att.user_username}</td>
+                    <td class="py-2 px-3">${user ? user.name : '-'}</td>
+                    <td class="py-2 px-3">${att.activity_name}</td>
+                    <td class="py-2 px-3">${formatDateTime(att.attendance_time)}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // Download Functions
+    function downloadTableData(type) {
+      let data = [];
+      let filename = '';
+      
+      if (type === 'users') {
+        data = users.map(u => ({
+          'Nama Lengkap': u.name,
+          'Username': u.username,
+          'RT': u.rt,
+          'Tanggal Daftar': formatDateTime(u.registered_at)
+        }));
+        filename = 'data_warga.csv';
+      } else if (type === 'activities') {
+        data = activities.map(a => ({
+          'Nama Kegiatan': a.activity_name,
+          'Tanggal': a.activity_date,
+          'Lokasi': a.activity_location,
+          'Status': a.activity_status,
+          'Jumlah Peserta': attendances.filter(att => att.activity_name === a.activity_name).length,
+          'Dibuat': formatDateTime(a.created_at)
+        }));
+        filename = 'data_kegiatan.csv';
+      } else if (type === 'attendances') {
+        data = attendances.map(att => {
+          const user = users.find(u => u.username === att.user_username);
+          return {
+            'Username': att.user_username,
+            'Nama Warga': user ? user.name : '-',
+            'RT': user ? user.rt : '-',
+            'Kegiatan': att.activity_name,
+            'Waktu Absensi': formatDateTime(att.attendance_time)
+          };
+        });
+        filename = 'data_absensi.csv';
+      }
+
+      if (data.length === 0) {
+        showToast('Tidak ada data untuk diunduh', 'error');
+        return;
+      }
+
+      const csv = convertToCSV(data);
+      downloadCSV(csv, filename);
+      showToast(`Data berhasil diunduh: ${filename}`);
+    }
+
+    function convertToCSV(data) {
+      const headers = Object.keys(data[0]);
+      const csvRows = [];
+      
+      // Add headers
+      csvRows.push(headers.join(','));
+      
+      // Add data rows
+      for (const row of data) {
+        const values = headers.map(header => {
+          const value = row[header];
+          // Escape quotes and wrap in quotes if contains comma
+          const escaped = String(value).replace(/"/g, '""');
+          return escaped.includes(',') ? `"${escaped}"` : escaped;
+        });
+        csvRows.push(values.join(','));
+      }
+      
+      return csvRows.join('\n');
+    }
+
+    function downloadCSV(csv, filename) {
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
     function renderAdminDashboard() {
       const primaryColor = config.primary_color || defaultConfig.primary_color;
       const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
@@ -795,9 +1017,54 @@
               `}
             </div>
 
+            <!-- Data Tables Section -->
+            <div class="rounded-2xl shadow-lg p-6 mb-8" style="background: ${surfaceColor};">
+              <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold" style="color: ${textColor};">📊 Database & Export Data</h2>
+                <div class="flex gap-2">
+                  <button onclick="downloadTableData('users')" class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    Export Warga
+                  </button>
+                  <button onclick="downloadTableData('activities')" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    Export Kegiatan
+                  </button>
+                  <button onclick="downloadTableData('attendances')" class="bg-purple-500 hover:bg-purple-600 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    Export Absensi
+                  </button>
+                </div>
+              </div>
+
+              <!-- Tabs -->
+              <div class="flex gap-2 mb-4 border-b">
+                <button onclick="switchDataTab('users')" id="tab-users" class="data-tab px-4 py-2 font-medium transition border-b-2 border-transparent" style="color: ${textColor};">
+                  👥 Warga (${totalUsers})
+                </button>
+                <button onclick="switchDataTab('activities')" id="tab-activities" class="data-tab px-4 py-2 font-medium transition border-b-2 border-transparent" style="color: ${textColor};">
+                  📅 Kegiatan (${totalActivities})
+                </button>
+                <button onclick="switchDataTab('attendances')" id="tab-attendances" class="data-tab px-4 py-2 font-medium transition border-b-2 border-transparent" style="color: ${textColor};">
+                  ✅ Absensi (${totalAttendances})
+                </button>
+              </div>
+
+              <!-- Table Container -->
+              <div id="data-table-container" class="overflow-x-auto">
+                <!-- Tables will be rendered here -->
+              </div>
+            </div>
+
             <!-- Users Section -->
             <div class="rounded-2xl shadow-lg p-6" style="background: ${surfaceColor};">
-              <h2 class="text-xl font-bold mb-6" style="color: ${textColor};">👥 Daftar Warga Terdaftar</h2>
+              <h2 class="text-xl font-bold mb-6" style="color: ${textColor};">👥 Kartu Warga Terdaftar</h2>
               
               ${users.length === 0 ? `
                 <div class="text-center py-12 text-gray-400">
@@ -830,6 +1097,9 @@
           </div>
         </div>
       `;
+      
+      // Render data table after DOM is ready
+      setTimeout(renderDataTable, 100);
     }
 
     function renderActivityForm() {
@@ -1146,6 +1416,9 @@
           </div>
         </div>
       `;
+      
+      // Render data table after DOM is ready
+      setTimeout(renderDataTable, 100);
     }
 
     let selectedActivity = null;
@@ -1311,5 +1584,5 @@
     // Initialize
     initApp();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c17b81aa03e4083',t:'MTc2OTAwODAyNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c17d21946e8960c',t:'MTc2OTAwOTA5MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
