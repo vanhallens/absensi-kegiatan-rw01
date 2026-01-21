@@ -370,10 +370,16 @@
               <!-- Warga Fields -->
               <div id="warga-fields" class="${loginMode === 'warga' ? '' : 'hidden'}">
                 <div class="mb-4">
-                  <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="login-nik">NIK (Nomor Induk Kependudukan)</label>
-                  <input type="text" id="login-nik" name="nik" maxlength="16" pattern="[0-9]{16}"
+                  <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="login-username">Username</label>
+                  <input type="text" id="login-username" name="username"
                     class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                    placeholder="Masukkan 16 digit NIK" ${loginMode === 'warga' ? 'required' : ''}>
+                    placeholder="Masukkan username Anda" ${loginMode === 'warga' ? 'required' : ''}>
+                </div>
+                <div class="mb-4">
+                  <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="login-password">Password</label>
+                  <input type="password" id="login-password" name="password"
+                    class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
+                    placeholder="Masukkan password" ${loginMode === 'warga' ? 'required' : ''}>
                 </div>
               </div>
 
@@ -421,14 +427,16 @@
       btn.textContent = 'Memproses...';
 
       if (loginMode === 'warga') {
-        const nik = document.getElementById('login-nik').value.trim();
-        const user = users.find(u => u.nik === nik);
+        const username = document.getElementById('login-username').value.trim();
+        const password = document.getElementById('login-password').value;
+        const user = users.find(u => u.username === username && u.password === password);
+        
         if (user) {
           currentUser = user;
           showToast(`Selamat datang, ${user.name}!`);
           navigate('user-dashboard', { user });
         } else {
-          showToast('NIK tidak terdaftar. Silakan daftar terlebih dahulu.', 'error');
+          showToast('Username atau password salah!', 'error');
           btn.disabled = false;
           btn.textContent = 'Masuk';
         }
@@ -481,19 +489,43 @@
                   class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
                   placeholder="Masukkan nama lengkap">
               </div>
+              
               <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="reg-nik">NIK</label>
-                <input type="text" id="reg-nik" name="nik" required maxlength="16" pattern="[0-9]{16}"
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="reg-username">Username</label>
+                <input type="text" id="reg-username" name="username" required minlength="4"
                   class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  placeholder="Masukkan 16 digit NIK">
+                  placeholder="Masukkan username (min. 4 karakter)">
               </div>
+              
               <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="reg-rt">RT</label>
-                <select id="reg-rt" name="rt" required
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="reg-password">Password</label>
+                <input type="password" id="reg-password" name="password" required minlength="6"
+                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
+                  placeholder="Masukkan password (min. 6 karakter)">
+              </div>
+              
+              <div class="mb-4">
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="reg-confirm-password">Confirm Password</label>
+                <input type="password" id="reg-confirm-password" name="confirm_password" required minlength="6"
+                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
+                  placeholder="Ketik ulang password">
+              </div>
+              
+              <div class="mb-4">
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="reg-rt-select">RT / Lainnya</label>
+                <select id="reg-rt-select" name="rt_select" required onchange="toggleRtInput()"
                   class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none">
-                  <option value="">Pilih RT</option>
-                  ${[1,2,3,4,5,6,7,8,9,10].map(rt => `<option value="${rt.toString().padStart(2,'0')}">RT ${rt.toString().padStart(2,'0')}</option>`).join('')}
+                  <option value="">Pilih RT atau Lainnya</option>
+                  ${[1,2,3,4,5,6,7,8,9,10].map(rt => `<option value="RT ${rt.toString().padStart(2,'0')}">RT ${rt.toString().padStart(2,'0')}</option>`).join('')}
+                  <option value="lainnya">Lainnya (ketik manual)</option>
                 </select>
+              </div>
+              
+              <div id="reg-rt-custom-container" class="mb-4 hidden">
+                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="reg-rt-custom">Ketik RT / Lainnya</label>
+                <input type="text" id="reg-rt-custom" name="rt_custom"
+                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
+                  placeholder="Contoh: RT 15, Pengurus, dll">
               </div>
               
               <!-- Camera for Photo -->
@@ -534,6 +566,21 @@
       `;
     }
 
+    function toggleRtInput() {
+      const select = document.getElementById('reg-rt-select');
+      const customContainer = document.getElementById('reg-rt-custom-container');
+      const customInput = document.getElementById('reg-rt-custom');
+      
+      if (select.value === 'lainnya') {
+        customContainer.classList.remove('hidden');
+        customInput.required = true;
+      } else {
+        customContainer.classList.add('hidden');
+        customInput.required = false;
+        customInput.value = '';
+      }
+    }
+
     async function startRegisterCamera() {
       try {
         const video = document.getElementById('reg-video');
@@ -572,9 +619,18 @@
       e.preventDefault();
       const btn = document.getElementById('register-btn');
       const name = document.getElementById('reg-name').value.trim();
-      const nik = document.getElementById('reg-nik').value.trim();
-      const rt = document.getElementById('reg-rt').value;
+      const username = document.getElementById('reg-username').value.trim();
+      const password = document.getElementById('reg-password').value;
+      const confirmPassword = document.getElementById('reg-confirm-password').value;
+      const rtSelect = document.getElementById('reg-rt-select').value;
+      const rtCustom = document.getElementById('reg-rt-custom').value.trim();
       const photo = document.getElementById('reg-photo').value;
+
+      // Validation
+      if (password !== confirmPassword) {
+        showToast('Password dan Confirm Password tidak sama!', 'error');
+        return;
+      }
 
       if (!photo) {
         showToast('Silakan ambil foto wajah terlebih dahulu', 'error');
@@ -586,10 +642,13 @@
         return;
       }
 
-      if (users.find(u => u.nik === nik)) {
-        showToast('NIK sudah terdaftar!', 'error');
+      if (users.find(u => u.username === username)) {
+        showToast('Username sudah digunakan!', 'error');
         return;
       }
+
+      // Determine RT value
+      const rtValue = rtSelect === 'lainnya' ? rtCustom : rtSelect;
 
       btn.disabled = true;
       btn.textContent = 'Mendaftarkan...';
@@ -597,8 +656,9 @@
       const result = await window.dataSdk.create({
         type: 'user',
         name,
-        nik,
-        rt,
+        username,
+        password,
+        rt: rtValue,
         photo,
         registered_at: new Date().toISOString()
       });
@@ -754,8 +814,8 @@
                         class="w-14 h-14 rounded-full object-cover border-2" style="border-color: ${secondaryColor};" alt="${user.name}">
                       <div class="flex-1 min-w-0">
                         <p class="font-semibold truncate" style="color: ${textColor};">${user.name}</p>
-                        <p class="text-sm text-gray-500">NIK: ${user.nik}</p>
-                        <p class="text-xs text-gray-400">RT ${user.rt}</p>
+                        <p class="text-sm text-gray-500">@${user.username}</p>
+                        <p class="text-xs text-gray-400">${user.rt}</p>
                       </div>
                       <button onclick="confirmDeleteUser('${user.__backendId}')" class="p-2 hover:bg-red-50 rounded-lg transition" title="Hapus">
                         <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -970,7 +1030,7 @@
       const appTitle = config.app_title || defaultConfig.app_title;
 
       const activeActivities = activities.filter(a => a.activity_status === 'aktif');
-      const userAttendances = attendances.filter(a => a.user_nik === currentUser.nik);
+      const userAttendances = attendances.filter(a => a.user_username === currentUser.username);
 
       return `
         <div class="min-h-full" style="background: ${bgColor};">
@@ -1057,7 +1117,7 @@
 
             <!-- Attendance History -->
             <div class="rounded-2xl shadow-lg p-6" style="background: ${surfaceColor};">
-              <h2 class="text-xl font-bold mb-6" style="color: ${textColor};">📋 Riwayat Absensi</h2>
+              <h2 class="text-xl font-bold mb-6" style="color: ${textColor};">�� Riwayat Absensi</h2>
               
               ${userAttendances.length === 0 ? `
                 <div class="text-center py-12 text-gray-400">
@@ -1210,7 +1270,7 @@
 
       const result = await window.dataSdk.create({
         type: 'attendance',
-        user_nik: currentUser.nik,
+        user_username: currentUser.username,
         activity_name: selectedActivity,
         attendance_photo: capturedAttendancePhoto,
         attendance_time: new Date().toISOString()
@@ -1251,5 +1311,5 @@
     // Initialize
     initApp();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c17a38257f7b590',t:'MTc2OTAwNzE4MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c17b81aa03e4083',t:'MTc2OTAwODAyNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
