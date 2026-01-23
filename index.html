@@ -397,8 +397,8 @@
     // ========================================
     
     // ⚠️ GANTI URL INI DENGAN WEB APP URL ANDA!
-    // const GOOGLE_SHEETS_API_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';
-    const GOOGLE_SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbyQE284RBROqwH4HXQy025zuc7vPuRKRpfaRAV7duAClo4aOENGSumUE5O21tNwH-kNBQ/exec'; 
+    const GOOGLE_SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbyQE284RBROqwH4HXQy025zuc7vPuRKRpfaRAV7duAClo4aOENGSumUE5O21tNwH-kNBQ/exec';
+    
     // ========================================
     // GLOBAL STATE
     // ========================================
@@ -420,14 +420,34 @@
 
     async function loadAllDataFromSheets() {
       try {
-        showToast('Memuat data...', 'info');
-        const response = await fetch(GOOGLE_SHEETS_API_URL + '?action=getAllData');
+        console.log('🔄 Loading data from:', GOOGLE_SHEETS_API_URL);
+        
+        const response = await fetch(GOOGLE_SHEETS_API_URL + '?action=getAllData', {
+          method: 'GET',
+          redirect: 'follow'
+        });
+        
+        console.log('✅ Response status:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP Error ${response.status}: ${response.statusText}`);
+        }
+        
+        const contentType = response.headers.get('content-type');
+        console.log('📄 Content-Type:', contentType);
+        
+        if (!contentType || !contentType.includes('application/json')) {
+          const text = await response.text();
+          console.error('❌ Non-JSON response received:', text.substring(0, 500));
+          throw new Error('Server tidak mengembalikan JSON. Kemungkinan deployment belum benar.');
+        }
+        
         const data = await response.json();
+        console.log('📦 Data received:', data);
         
         if (data.error) {
-          console.error('Error loading data:', data.error);
-          showToast('Gagal memuat data: ' + data.error, 'error');
-          return false;
+          console.error('❌ API Error:', data.error);
+          throw new Error(data.error);
         }
         
         // Map data with __backendId for compatibility
@@ -436,13 +456,18 @@
         activities = (data.activities || []).map(a => ({ ...a, __backendId: a.id ? a.id.toString() : '' }));
         attendances = (data.attendances || []).map(a => ({ ...a, __backendId: a.id ? a.id.toString() : '' }));
         
-        console.log('Data loaded:', { users: users.length, admins: admins.length, activities: activities.length, attendances: attendances.length });
+        console.log('✅ Data loaded successfully:', { 
+          users: users.length, 
+          admins: admins.length, 
+          activities: activities.length, 
+          attendances: attendances.length 
+        });
         
         renderCurrentView();
         return true;
       } catch (error) {
-        console.error('Fetch error:', error);
-        showToast('Koneksi ke database gagal: ' + error.message, 'error');
+        console.error('❌ FETCH ERROR:', error.message);
+        console.error('❌ Full error:', error);
         return false;
       }
     }
@@ -586,12 +611,41 @@
         showToast('Aplikasi siap digunakan!', 'success');
       } else {
         document.getElementById('loading-screen').innerHTML = `
-          <div class="text-center">
-            <span class="text-6xl mb-4">❌</span>
+          <div class="text-center max-w-2xl mx-auto">
+            <span class="text-6xl mb-4 block">❌</span>
             <h2 class="text-2xl font-bold text-red-600 mb-4">Gagal Memuat Data</h2>
-            <p class="text-gray-700 mb-4">Periksa koneksi internet dan URL API Anda.</p>
-            <button onclick="location.reload()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
-              Coba Lagi
+            <div class="bg-red-50 border-2 border-red-200 rounded-xl p-6 mb-6 text-left">
+              <h3 class="font-bold text-gray-800 mb-3">🔍 Kemungkinan Penyebab:</h3>
+              <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                <li><strong>Web App belum di-deploy</strong> - Pastikan Anda sudah klik "Deploy" → "New deployment" di Google Apps Script</li>
+                <li><strong>URL Web App salah</strong> - Periksa URL di baris 724 file index.html</li>
+                <li><strong>Akses ditolak</strong> - Pastikan "Who has access" di-set ke <strong>"Anyone"</strong></li>
+                <li><strong>Script belum disimpan</strong> - Pastikan sudah klik Save (💾) di Apps Script</li>
+                <li><strong>CORS Issue</strong> - Pastikan deploy sebagai "Web app" bukan "API executable"</li>
+              </ol>
+            </div>
+            
+            <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 mb-6 text-left">
+              <h3 class="font-bold text-gray-800 mb-3">✅ Checklist Deployment:</h3>
+              <ul class="space-y-2 text-gray-700">
+                <li>☐ Sudah paste script di Google Apps Script</li>
+                <li>☐ Sudah klik Save (💾)</li>
+                <li>☐ Sudah Deploy → New deployment</li>
+                <li>☐ Type: <strong>Web app</strong></li>
+                <li>☐ Execute as: <strong>Me</strong></li>
+                <li>☐ Who has access: <strong>Anyone</strong></li>
+                <li>☐ Sudah copy URL Web App</li>
+                <li>☐ Sudah paste URL ke baris 724 index.html</li>
+              </ul>
+            </div>
+            
+            <div class="bg-gray-100 rounded-lg p-4 mb-6">
+              <p class="text-sm text-gray-600 mb-2"><strong>Buka Console untuk detail error:</strong></p>
+              <p class="text-xs text-gray-500">Tekan F12 (Windows) atau Cmd+Option+J (Mac)</p>
+            </div>
+            
+            <button onclick="location.reload()" class="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 font-semibold">
+              🔄 Coba Lagi
             </button>
           </div>
         `;
@@ -1529,5 +1583,5 @@
     
     window.addEventListener('DOMContentLoaded', initApp);
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c28016141bcd9e8',t:'MTc2OTE3ODgwMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c283a90e66cc031',t:'MTc2OTE4MTE0Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
