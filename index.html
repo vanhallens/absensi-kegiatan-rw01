@@ -1,1601 +1,808 @@
-<!doctype html>
-<html lang="id">
- <head>
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Absensi Kegiatan RW - Sistem Manajemen Kehadiran</title>
+  <title>Absensi Kegiatan RW</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body {
-      box-sizing: border-box;
-    }
-    
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-    
-    * {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-    }
-    
-    .signature-pad {
-      border: 2px solid #e5e7eb;
-      border-radius: 8px;
-      cursor: crosshair;
-      background: white;
-    }
-    
-    .toast {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      padding: 16px 24px;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-      z-index: 10000;
-      animation: slideIn 0.3s ease-out;
-      max-width: 400px;
-    }
-    
-    @keyframes slideIn {
-      from {
-        transform: translateX(400px);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
-    }
-    
-    @keyframes fadeOut {
-      to {
-        opacity: 0;
-        transform: translateX(400px);
-      }
-    }
-    
-    .toast.removing {
-      animation: fadeOut 0.3s ease-out forwards;
-    }
-    
-    .loading-spinner {
-      border: 3px solid #f3f4f6;
-      border-top: 3px solid #3b82f6;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-    }
-    
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    
-    .stat-card {
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    
-    .stat-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 24px rgba(0,0,0,0.1);
-    }
-    
-    .btn-primary {
-      transition: all 0.2s;
-    }
-    
-    .btn-primary:hover {
-      transform: scale(1.02);
-      box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
-    }
-    
-    .btn-primary:active {
-      transform: scale(0.98);
-    }
-    
-    .hidden {
-      display: none !important;
-    }
-    
-    .modal-backdrop {
-      background: rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(4px);
-    }
-    
-    video {
-      border-radius: 8px;
-      max-width: 100%;
-    }
-    
-    .activity-card {
-      transition: all 0.3s;
-      border: 2px solid transparent;
-    }
-    
-    .activity-card:hover {
-      border-color: #3b82f6;
-      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
-    }
+    body { box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+    .gradient-bg { background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 50%, #3d7ab5 100%); }
+    .card-shadow { box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+    .btn-primary { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+    .btn-primary:hover { background: linear-gradient(135deg, #d97706 0%, #b45309 100%); }
+    .input-focus:focus { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2); }
+    .toast { animation: slideIn 0.3s ease-out; }
+    @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .fade-in { animation: fadeIn 0.3s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    /* Loader */
+    .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #f59e0b; width: 20px; height: 20px; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
-  <style>@view-transition { navigation: auto; }</style>
-  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
-  <script src="/_sdk/element_sdk.js" type="text/javascript"></script>
- </head>
- <body class="bg-gradient-to-br from-blue-50 via-white to-indigo-50 min-h-screen"><!-- ========================================
-       LOADING SCREEN
-       ======================================== -->
-  <div id="loading-screen" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
-   <div class="text-center">
-    <div class="loading-spinner mx-auto mb-4"></div>
-    <h2 class="text-2xl font-bold text-gray-800">Memuat Aplikasi...</h2>
-    <p class="text-gray-600 mt-2">Menghubungkan ke database</p>
-   </div>
-  </div><!-- ========================================
-       MAIN CONTAINER
-       ======================================== -->
-  <div id="app-container" class="hidden"><!-- ========================================
-         LOGIN PAGE
-         ======================================== -->
-   <div id="login-page" class="min-h-screen flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl p-8 md:p-12 max-w-md w-full">
-     <div class="text-center mb-8">
-      <div class="bg-blue-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4"><span class="text-4xl">📋</span>
-      </div>
-      <h1 class="text-3xl font-bold text-gray-800 mb-2">Absensi Kegiatan RW</h1>
-      <p class="text-gray-600">Sistem Manajemen Kehadiran Digital</p>
-     </div>
-     <form id="login-form" class="space-y-6">
-      <div><label for="login-username" class="block text-sm font-semibold text-gray-700 mb-2">Username</label> <input type="text" id="login-username" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="Masukkan username">
-      </div>
-      <div><label for="login-password" class="block text-sm font-semibold text-gray-700 mb-2">Password</label> <input type="password" id="login-password" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="Masukkan password">
-      </div><button type="submit" id="login-btn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition btn-primary"> Masuk </button>
-     </form>
-     <div class="mt-6 text-center">
-      <p class="text-gray-600">Belum punya akun?</p><button id="goto-register-btn" class="text-blue-600 font-semibold hover:underline mt-2"> Daftar di sini </button>
-     </div>
-     <div class="mt-8 pt-6 border-t border-gray-200 text-center text-sm text-gray-500">
-      <p>🔒 Login Admin: <strong>admin / admin123</strong></p>
-     </div>
-    </div>
-   </div><!-- ========================================
-         REGISTER PAGE
-         ======================================== -->
-   <div id="register-page" class="hidden min-h-screen flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl p-8 md:p-12 max-w-2xl w-full">
-     <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold text-gray-800 mb-2">Daftar Warga Baru</h1>
-      <p class="text-gray-600">Lengkapi data untuk membuat akun</p>
-     </div>
-     <form id="register-form" class="space-y-6">
-      <div class="grid md:grid-cols-2 gap-6">
-       <div><label for="reg-name" class="block text-sm font-semibold text-gray-700 mb-2">Nama Lengkap</label> <input type="text" id="reg-name" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="Nama lengkap">
-       </div>
-       <div><label for="reg-username" class="block text-sm font-semibold text-gray-700 mb-2">Username</label> <input type="text" id="reg-username" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="Username">
-       </div>
-       <div><label for="reg-password" class="block text-sm font-semibold text-gray-700 mb-2">Password</label> <input type="password" id="reg-password" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="Password">
-       </div>
-       <div><label for="reg-rt" class="block text-sm font-semibold text-gray-700 mb-2">RT</label> <input type="text" id="reg-rt" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="Contoh: RT 01">
-       </div>
-       <div><label for="reg-position" class="block text-sm font-semibold text-gray-700 mb-2">Jabatan</label> <select id="reg-position" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"> <option value="">Pilih Jabatan</option> <option value="Ketua RT">Ketua RT</option> <option value="Wakil Ketua RT">Wakil Ketua RT</option> <option value="Sekretaris">Sekretaris</option> <option value="Bendahara">Bendahara</option> <option value="Seksi Keamanan">Seksi Keamanan</option> <option value="Warga">Warga</option> </select>
-       </div>
-       <div><label for="reg-phone" class="block text-sm font-semibold text-gray-700 mb-2">Nomor HP</label> <input type="tel" id="reg-phone" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="08xxxxxxxxxx">
-       </div>
-      </div><button type="submit" id="register-btn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition btn-primary"> Daftar Sekarang </button>
-     </form>
-     <div class="mt-6 text-center"><button id="goto-login-btn" class="text-blue-600 font-semibold hover:underline"> ← Kembali ke Login </button>
-     </div>
-    </div>
-   </div><!-- ========================================
-         USER DASHBOARD
-         ======================================== -->
-   <div id="user-dashboard" class="hidden min-h-screen"><!-- Header -->
-    <header class="bg-white shadow-md">
-     <div class="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
-      <div>
-       <h1 class="text-2xl font-bold text-gray-800">Dashboard Warga</h1>
-       <p class="text-gray-600" id="user-welcome">Selamat datang!</p>
-      </div><button id="user-logout-btn" class="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600 transition"> Logout </button>
-     </div>
-    </header><!-- Content -->
-    <main class="max-w-7xl mx-auto px-4 py-8">
-     <div class="mb-8">
-      <h2 class="text-2xl font-bold text-gray-800 mb-6">Kegiatan Aktif</h2>
-      <div id="user-activities-list" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6"><!-- Activities will be populated here -->
-      </div>
-      <div id="user-no-activities" class="hidden text-center py-12 bg-white rounded-xl"><span class="text-6xl">📅</span>
-       <p class="text-xl text-gray-600 mt-4">Belum ada kegiatan aktif</p>
-      </div>
-     </div><!-- Riwayat Absensi -->
-     <div>
-      <h2 class="text-2xl font-bold text-gray-800 mb-6">Riwayat Absensi Saya</h2>
-      <div class="bg-white rounded-xl shadow-md overflow-hidden">
-       <div class="overflow-x-auto">
-        <table class="w-full">
-         <thead class="bg-gray-50">
-          <tr>
-           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Kegiatan</th>
-           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Waktu Absen</th>
-           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Status</th>
-          </tr>
-         </thead>
-         <tbody id="user-attendance-history"><!-- Attendance history will be populated here -->
-         </tbody>
-        </table>
-       </div>
-      </div>
-     </div>
-    </main>
-   </div><!-- ========================================
-         ADMIN DASHBOARD
-         ======================================== -->
-   <div id="admin-dashboard" class="hidden min-h-screen"><!-- Header -->
-    <header class="bg-white shadow-md">
-     <div class="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
-      <div>
-       <h1 class="text-2xl font-bold text-gray-800">Dashboard Admin</h1>
-       <p class="text-gray-600" id="admin-welcome">Selamat datang, Administrator!</p>
-      </div><button id="admin-logout-btn" class="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600 transition"> Logout </button>
-     </div>
-    </header><!-- Statistics -->
-    <main class="max-w-7xl mx-auto px-4 py-8">
-     <div class="grid md:grid-cols-4 gap-6 mb-8">
-      <div class="bg-white rounded-xl shadow-md p-6 stat-card">
-       <div class="flex items-center justify-between">
-        <div>
-         <p class="text-gray-600 text-sm font-semibold">Total Warga</p>
-         <p class="text-3xl font-bold text-blue-600" id="stat-users">0</p>
-        </div>
-        <div class="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center"><span class="text-2xl">👥</span>
-        </div>
-       </div>
-      </div>
-      <div class="bg-white rounded-xl shadow-md p-6 stat-card">
-       <div class="flex items-center justify-between">
-        <div>
-         <p class="text-gray-600 text-sm font-semibold">Total Kegiatan</p>
-         <p class="text-3xl font-bold text-green-600" id="stat-activities">0</p>
-        </div>
-        <div class="bg-green-100 w-12 h-12 rounded-full flex items-center justify-center"><span class="text-2xl">📅</span>
-        </div>
-       </div>
-      </div>
-      <div class="bg-white rounded-xl shadow-md p-6 stat-card">
-       <div class="flex items-center justify-between">
-        <div>
-         <p class="text-gray-600 text-sm font-semibold">Kegiatan Aktif</p>
-         <p class="text-3xl font-bold text-purple-600" id="stat-active">0</p>
-        </div>
-        <div class="bg-purple-100 w-12 h-12 rounded-full flex items-center justify-center"><span class="text-2xl">✅</span>
-        </div>
-       </div>
-      </div>
-      <div class="bg-white rounded-xl shadow-md p-6 stat-card">
-       <div class="flex items-center justify-between">
-        <div>
-         <p class="text-gray-600 text-sm font-semibold">Total Absensi</p>
-         <p class="text-3xl font-bold text-orange-600" id="stat-attendances">0</p>
-        </div>
-        <div class="bg-orange-100 w-12 h-12 rounded-full flex items-center justify-center"><span class="text-2xl">📝</span>
-        </div>
-       </div>
-      </div>
-     </div><!-- Tabs -->
-     <div class="bg-white rounded-xl shadow-md mb-8">
-      <div class="flex border-b"><button class="tab-btn px-6 py-4 font-semibold text-blue-600 border-b-2 border-blue-600" data-tab="activities"> Kegiatan </button> <button class="tab-btn px-6 py-4 font-semibold text-gray-600 hover:text-blue-600" data-tab="users"> Warga Terdaftar </button> <button class="tab-btn px-6 py-4 font-semibold text-gray-600 hover:text-blue-600" data-tab="attendances"> Data Absensi </button>
-      </div>
-     </div><!-- Tab: Activities -->
-     <div id="tab-activities" class="tab-content">
-      <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-       <div class="flex justify-between items-center mb-6">
-        <h2 class="text-xl font-bold text-gray-800">Manajemen Kegiatan</h2><button id="add-activity-btn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition btn-primary"> + Tambah Kegiatan </button>
-       </div>
-       <div id="activities-list" class="space-y-4"><!-- Activities will be populated here -->
-       </div>
-      </div>
-     </div><!-- Tab: Users -->
-     <div id="tab-users" class="tab-content hidden">
-      <div class="bg-white rounded-xl shadow-md p-6">
-       <h2 class="text-xl font-bold text-gray-800 mb-6">Daftar Warga Terdaftar</h2>
-       <div class="overflow-x-auto">
-        <table class="w-full">
-         <thead class="bg-gray-50">
-          <tr>
-           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Nama</th>
-           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Username</th>
-           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">RT</th>
-           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Jabatan</th>
-           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Telepon</th>
-          </tr>
-         </thead>
-         <tbody id="users-table-body"><!-- Users will be populated here -->
-         </tbody>
-        </table>
-       </div>
-      </div>
-     </div><!-- Tab: Attendances -->
-     <div id="tab-attendances" class="tab-content hidden">
-      <div class="bg-white rounded-xl shadow-md p-6">
-       <div class="flex justify-between items-center mb-6">
-        <h2 class="text-xl font-bold text-gray-800">Data Absensi</h2>
-        <div class="flex gap-3"><button id="export-csv-btn" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition"> 📥 Export CSV </button> <button id="print-attendance-btn" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition"> 🖨️ Cetak </button>
-        </div>
-       </div><!-- Filter -->
-       <div class="mb-6"><label for="filter-activity" class="block text-sm font-semibold text-gray-700 mb-2">Filter Kegiatan:</label> <select id="filter-activity" class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"> <option value="">Semua Kegiatan</option> </select>
-       </div>
-       <div class="overflow-x-auto">
-        <table class="w-full">
-         <thead class="bg-gray-50">
-          <tr>
-           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Nama</th>
-           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Kegiatan</th>
-           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Waktu</th>
-           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Foto</th>
-           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Tanda Tangan</th>
-          </tr>
-         </thead>
-         <tbody id="attendances-table-body"><!-- Attendances will be populated here -->
-         </tbody>
-        </table>
-       </div>
-      </div>
-     </div>
-    </main>
-   </div>
-  </div><!-- ========================================
-       MODAL: ADD/EDIT ACTIVITY
-       ======================================== -->
-  <div id="activity-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-   <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-    <h2 class="text-2xl font-bold text-gray-800 mb-6" id="activity-modal-title">Tambah Kegiatan Baru</h2>
-    <form id="activity-form" class="space-y-6"><input type="hidden" id="activity-id">
-     <div><label for="activity-name" class="block text-sm font-semibold text-gray-700 mb-2">Nama Kegiatan</label> <input type="text" id="activity-name" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="Contoh: Kerja Bakti Bulanan">
-     </div>
-     <div class="grid md:grid-cols-2 gap-6">
-      <div><label for="activity-date" class="block text-sm font-semibold text-gray-700 mb-2">Tanggal</label> <input type="date" id="activity-date" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition">
-      </div>
-      <div><label for="activity-time" class="block text-sm font-semibold text-gray-700 mb-2">Waktu</label> <input type="time" id="activity-time" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition">
-      </div>
-     </div>
-     <div><label for="activity-location" class="block text-sm font-semibold text-gray-700 mb-2">Lokasi</label> <input type="text" id="activity-location" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="Contoh: Balai RW 05">
-     </div>
-     <div><label for="activity-status" class="block text-sm font-semibold text-gray-700 mb-2">Status</label> <select id="activity-status" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"> <option value="aktif">Aktif</option> <option value="selesai">Selesai</option> <option value="dibatalkan">Dibatalkan</option> </select>
-     </div>
-     <div class="flex gap-4"><button type="submit" id="save-activity-btn" class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition btn-primary"> Simpan </button> <button type="button" id="cancel-activity-btn" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition"> Batal </button>
-     </div>
-    </form>
-   </div>
-  </div><!-- ========================================
-       MODAL: ATTENDANCE
-       ======================================== -->
-  <div id="attendance-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-   <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-    <h2 class="text-2xl font-bold text-gray-800 mb-2">Absensi Kegiatan</h2>
-    <p class="text-gray-600 mb-6" id="attendance-activity-name">Nama Kegiatan</p><!-- Camera Section -->
-    <div class="mb-6"><label class="block text-sm font-semibold text-gray-700 mb-3">Ambil Foto</label>
-     <div class="bg-gray-100 rounded-lg p-4">
-      <video id="attendance-video" class="w-full mb-3 hidden" autoplay playsinline></video>
-      <canvas id="attendance-canvas" class="hidden"></canvas>
-      <div id="attendance-preview" class="hidden mb-3"><img id="attendance-preview-img" class="w-full rounded-lg">
-      </div>
-      <div class="flex gap-3"><button id="start-camera-btn" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"> 📷 Buka Kamera </button> <button id="capture-photo-btn" class="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition hidden"> 📸 Ambil Foto </button> <button id="retake-photo-btn" class="flex-1 bg-orange-600 text-white py-2 rounded-lg hover:bg-orange-700 transition hidden"> 🔄 Foto Ulang </button>
-      </div>
-     </div>
-    </div><!-- Signature Section -->
-    <div id="signature-section" class="mb-6 hidden"><label class="block text-sm font-semibold text-gray-700 mb-3">Tanda Tangan Digital</label>
-     <canvas id="signature-pad" class="signature-pad w-full" width="600" height="200"></canvas><button id="clear-signature-btn" class="mt-3 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition"> 🗑️ Hapus Tanda Tangan </button>
-    </div><!-- Action Buttons -->
-    <div id="submit-btn" class="flex gap-4 hidden"><button id="submit-attendance-btn" class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition btn-primary"> ✅ Submit Absensi </button> <button id="cancel-attendance-btn" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition"> Batal </button>
-    </div>
-   </div>
-  </div><!-- ========================================
-       JAVASCRIPT
-       ======================================== -->
+</head>
+<body class="h-full bg-gray-50">
+  
+  <div id="app" class="h-full overflow-auto"></div>
+
   <script>
-    // ========================================
-    // GOOGLE SHEETS API CONFIGURATION
-    // ========================================
-    
-    // ⚠️ GANTI URL INI DENGAN WEB APP URL ANDA!
-    const GOOGLE_SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbyQE284RBROqwH4HXQy025zuc7vPuRKRpfaRAV7duAClo4aOENGSumUE5O21tNwH-kNBQ/exec';
-    
-    // ========================================
-    // GLOBAL STATE
-    // ========================================
-    let users = [];
-    let admins = [];
-    let activities = [];
-    let attendances = [];
-    let currentUser = null;
-    let isAdmin = false;
-    let mediaStream = null;
-    let capturedAttendancePhoto = null;
-    let signaturePad = null;
-    let isDrawing = false;
-    let currentActivityForAttendance = null;
+    // ==================== CONFIGURATION ====================
+    const Config = {
+      // GANTI DENGAN URL WEB APP GOOGLE ANDA
+      API_URL: "https://script.google.com/macros/s/AKfycbwhuimaOdovCnxbWBJBxiRrHLxnzDP1Lo6YXRWdHviM9h8JsVWpoBfIuTNtbH9KAUr7/exec", 
+      APP_TITLE: 'Absensi Kegiatan RW',
+      RW_NAME: 'RW 01'
+    };
 
-    // ========================================
-    // API FUNCTIONS
-    // ========================================
-
-    async function loadAllDataFromSheets() {
-      try {
-        console.log('🔄 Loading data from:', GOOGLE_SHEETS_API_URL);
-        
-        const response = await fetch(GOOGLE_SHEETS_API_URL + '?action=getAllData', {
-          method: 'GET',
-          redirect: 'follow'
-        });
-        
-        console.log('✅ Response status:', response.status);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP Error ${response.status}: ${response.statusText}`);
-        }
-        
-        const contentType = response.headers.get('content-type');
-        console.log('📄 Content-Type:', contentType);
-        
-        if (!contentType || !contentType.includes('application/json')) {
-          const text = await response.text();
-          console.error('❌ Non-JSON response received:', text.substring(0, 500));
-          throw new Error('Server tidak mengembalikan JSON. Kemungkinan deployment belum benar.');
-        }
-        
-        const data = await response.json();
-        console.log('📦 Data received:', data);
-        
-        if (data.error) {
-          console.error('❌ API Error:', data.error);
-          throw new Error(data.error);
-        }
-        
-        // Map data with __backendId for compatibility
-        users = (data.users || []).map(u => ({ ...u, __backendId: u.id ? u.id.toString() : '' }));
-        admins = (data.admins || []).map(a => ({ ...a, __backendId: a.id ? a.id.toString() : '' }));
-        activities = (data.activities || []).map(a => ({ ...a, __backendId: a.id ? a.id.toString() : '' }));
-        attendances = (data.attendances || []).map(a => ({ ...a, __backendId: a.id ? a.id.toString() : '' }));
-        
-        console.log('✅ Data loaded successfully:', { 
-          users: users.length, 
-          admins: admins.length, 
-          activities: activities.length, 
-          attendances: attendances.length 
-        });
-        
-        renderCurrentView();
-        return true;
-      } catch (error) {
-        console.error('❌ FETCH ERROR:', error.message);
-        console.error('❌ Full error:', error);
-        return false;
+    // ==================== STATE MANAGEMENT ====================
+    const State = {
+      currentUser: null,
+      currentView: 'login',
+      allActivities: [],
+      allAttendances: [],
+      temp: {
+        capturedPhoto: null,
+        location: null,
+        videoStream: null,
+        selectedActivityId: null,
+        deleteActivityId: null
       }
-    }
+    };
 
-    async function createData(data) {
-      try {
-        let actionType = '';
-        if (data.type === 'user') actionType = 'createUser';
-        else if (data.type === 'admin') actionType = 'createAdmin';
-        else if (data.type === 'activity') actionType = 'createActivity';
-        else if (data.type === 'attendance') actionType = 'createAttendance';
-        
-        // Remove type field as it's not in schema
-        const cleanData = { ...data };
-        delete cleanData.type;
-        delete cleanData.__backendId;
-        
-        const response = await fetch(GOOGLE_SHEETS_API_URL + '?action=' + actionType, {
-          method: 'POST',
-          body: JSON.stringify(cleanData)
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          await loadAllDataFromSheets();
-          return { isOk: true };
-        } else {
-          return { isOk: false, error: result.error };
-        }
-      } catch (error) {
-        console.error('Create error:', error);
-        return { isOk: false, error: error.toString() };
-      }
-    }
-
-    async function updateData(data) {
-      try {
-        let actionType = '';
-        let cleanData = { ...data };
-        
-        // Determine action type based on data properties
-        if (cleanData.name && cleanData.username && cleanData.rt) {
-          actionType = 'updateUser';
-        } else if (cleanData.full_name && cleanData.role) {
-          actionType = 'updateAdmin';
-        } else if (cleanData.activity_name && cleanData.activity_date) {
-          actionType = 'updateActivity';
-        } else if (cleanData.user_username && cleanData.attendance_time) {
-          actionType = 'updateAttendance';
-        }
-        
-        // Convert __backendId to id
-        cleanData.id = parseInt(cleanData.__backendId);
-        delete cleanData.__backendId;
-        delete cleanData.type;
-        
-        const response = await fetch(GOOGLE_SHEETS_API_URL + '?action=' + actionType, {
-          method: 'POST',
-          body: JSON.stringify(cleanData)
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          await loadAllDataFromSheets();
-          return { isOk: true };
-        } else {
-          return { isOk: false, error: result.error };
-        }
-      } catch (error) {
-        console.error('Update error:', error);
-        return { isOk: false, error: error.toString() };
-      }
-    }
-
-    async function deleteData(data) {
-      try {
-        let actionType = '';
-        if (data.name && data.username) actionType = 'deleteUser';
-        else if (data.full_name && data.role) actionType = 'deleteAdmin';
-        else if (data.activity_name) actionType = 'deleteActivity';
-        else if (data.user_username) actionType = 'deleteAttendance';
-        
-        const response = await fetch(GOOGLE_SHEETS_API_URL + '?action=' + actionType, {
-          method: 'POST',
-          body: JSON.stringify({ id: parseInt(data.__backendId) })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          await loadAllDataFromSheets();
-          return { isOk: true };
-        } else {
-          return { isOk: false, error: result.error };
-        }
-      } catch (error) {
-        console.error('Delete error:', error);
-        return { isOk: false, error: error.toString() };
-      }
-    }
-
-    // ========================================
-    // INITIALIZE APP
-    // ========================================
-
-    async function initApp() {
-      console.log('🚀 Initializing app...');
-      
-      // Check API URL
-      if (GOOGLE_SHEETS_API_URL.includes('YOUR_DEPLOYMENT_ID')) {
-        document.getElementById('loading-screen').innerHTML = `
-          <div class="text-center">
-            <span class="text-6xl mb-4">⚠️</span>
-            <h2 class="text-2xl font-bold text-red-600 mb-4">Konfigurasi Belum Lengkap</h2>
-            <p class="text-gray-700 max-w-md">
-              Silakan ganti <code class="bg-gray-200 px-2 py-1 rounded">GOOGLE_SHEETS_API_URL</code> 
-              dengan URL Web App Anda di baris 724 file HTML ini.
-            </p>
-          </div>
-        `;
-        return;
-      }
-      
-      // Update loading message
-      document.querySelector('#loading-screen p').textContent = 'Mengambil data dari Google Sheets...';
-      
-      // Load data from Google Sheets
-      const success = await loadAllDataFromSheets();
-      
-      if (success) {
-        console.log('✅ App initialized successfully');
-        
-        // Check if default admin exists
-        if (admins.length === 0) {
-          console.log('⚙️ Creating default admin...');
-          await createDefaultAdmin();
-          await loadAllDataFromSheets(); // Reload to get the new admin
-        }
-        
-        // Hide loading screen and show login page
-        document.getElementById('loading-screen').classList.add('hidden');
-        document.getElementById('app-container').classList.remove('hidden');
-        document.getElementById('login-page').classList.remove('hidden');
-        
-        showToast('Aplikasi siap digunakan!', 'success');
-      } else {
-        document.getElementById('loading-screen').innerHTML = `
-          <div class="text-center max-w-2xl mx-auto">
-            <span class="text-6xl mb-4 block">❌</span>
-            <h2 class="text-2xl font-bold text-red-600 mb-4">Gagal Memuat Data</h2>
-            <div class="bg-red-50 border-2 border-red-200 rounded-xl p-6 mb-6 text-left">
-              <h3 class="font-bold text-gray-800 mb-3">🔍 Kemungkinan Penyebab:</h3>
-              <ol class="list-decimal list-inside space-y-2 text-gray-700">
-                <li><strong>Web App belum di-deploy</strong> - Pastikan Anda sudah klik "Deploy" → "New deployment" di Google Apps Script</li>
-                <li><strong>URL Web App salah</strong> - Periksa URL di baris 724 file index.html</li>
-                <li><strong>Akses ditolak</strong> - Pastikan "Who has access" di-set ke <strong>"Anyone"</strong></li>
-                <li><strong>Script belum disimpan</strong> - Pastikan sudah klik Save (💾) di Apps Script</li>
-                <li><strong>CORS Issue</strong> - Pastikan deploy sebagai "Web app" bukan "API executable"</li>
-              </ol>
-            </div>
-            
-            <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 mb-6 text-left">
-              <h3 class="font-bold text-gray-800 mb-3">✅ Checklist Deployment:</h3>
-              <ul class="space-y-2 text-gray-700">
-                <li>☐ Sudah paste script di Google Apps Script</li>
-                <li>☐ Sudah klik Save (💾)</li>
-                <li>☐ Sudah Deploy → New deployment</li>
-                <li>☐ Type: <strong>Web app</strong></li>
-                <li>☐ Execute as: <strong>Me</strong></li>
-                <li>☐ Who has access: <strong>Anyone</strong></li>
-                <li>☐ Sudah copy URL Web App</li>
-                <li>☐ Sudah paste URL ke baris 724 index.html</li>
-              </ul>
-            </div>
-            
-            <div class="bg-gray-100 rounded-lg p-4 mb-6">
-              <p class="text-sm text-gray-600 mb-2"><strong>Buka Console untuk detail error:</strong></p>
-              <p class="text-xs text-gray-500">Tekan F12 (Windows) atau Cmd+Option+J (Mac)</p>
-            </div>
-            
-            <button onclick="location.reload()" class="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 font-semibold">
-              🔄 Coba Lagi
-            </button>
-          </div>
-        `;
-      }
-    }
-
-    async function createDefaultAdmin() {
-      const result = await createData({
-        type: 'admin',
-        username: 'admin',
-        password: 'admin123',
-        full_name: 'Administrator',
-        email: 'admin@system.local',
-        role: 'admin',
-        registered_at: new Date().toISOString()
-      });
-      
-      if (result.isOk) {
-        console.log('Default admin created');
-      }
-    }
-
-    // ========================================
-    // NAVIGATION
-    // ========================================
-
-    function navigate(page, data = {}) {
-      // Hide all pages
-      document.querySelectorAll('#login-page, #register-page, #user-dashboard, #admin-dashboard').forEach(el => {
-        el.classList.add('hidden');
-      });
-      
-      // Show requested page
-      document.getElementById(page).classList.remove('hidden');
-      
-      // Render based on page
-      if (page === 'user-dashboard') {
-        renderUserDashboard(data.user);
-      } else if (page === 'admin-dashboard') {
-        renderAdminDashboard();
-      }
-    }
-
-    // ========================================
-    // LOGIN & REGISTER
-    // ========================================
-
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const btn = document.getElementById('login-btn');
-      const username = document.getElementById('login-username').value.trim();
-      const password = document.getElementById('login-password').value;
-      
-      btn.disabled = true;
-      btn.textContent = 'Memproses...';
-
-      try {
-        // Check admin
-        const admin = admins.find(a => a.username === username && a.password === password);
-        if (admin) {
-          isAdmin = true;
-          currentUser = admin;
-          showToast('Selamat datang Admin!', 'success');
-          navigate('admin-dashboard', { admin: true });
-          return;
-        }
-
-        // Check user
-        const user = users.find(u => u.username === username && u.password === password);
-        if (user) {
-          currentUser = user;
-          isAdmin = false;
-          showToast(`Selamat datang, ${user.name}!`, 'success');
-          navigate('user-dashboard', { user });
-          return;
-        }
-
-        showToast('Username atau password salah!', 'error');
-      } catch (error) {
-        console.error('Login error:', error);
-        showToast('Terjadi kesalahan saat login', 'error');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Masuk';
-      }
-    });
-
-    document.getElementById('register-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const btn = document.getElementById('register-btn');
-      
-      btn.disabled = true;
-      btn.textContent = 'Mendaftar...';
-
-      const username = document.getElementById('reg-username').value.trim();
-      
-      // Check if username exists
-      if (users.find(u => u.username === username)) {
-        showToast('Username sudah digunakan!', 'error');
-        btn.disabled = false;
-        btn.textContent = 'Daftar Sekarang';
-        return;
-      }
-
-      const userData = {
-        type: 'user',
-        name: document.getElementById('reg-name').value.trim(),
-        username: username,
-        password: document.getElementById('reg-password').value,
-        rt: document.getElementById('reg-rt').value.trim(),
-        position: document.getElementById('reg-position').value,
-        phone: document.getElementById('reg-phone').value.trim(),
-        registered_at: new Date().toISOString()
-      };
-
-      const result = await createData(userData);
-
-      btn.disabled = false;
-      btn.textContent = 'Daftar Sekarang';
-
-      if (result.isOk) {
-        document.getElementById('register-form').reset();
-        showToast('✅ Pendaftaran berhasil! Silakan login.', 'success', 4000);
-        
-        // Navigate after showing toast
-        setTimeout(() => {
-          navigate('login-page');
-        }, 500);
-      } else {
-        showToast('Pendaftaran gagal: ' + (result.error || 'Unknown error'), 'error');
-      }
-    });
-
-    document.getElementById('goto-register-btn').addEventListener('click', () => {
-      navigate('register-page');
-    });
-
-    document.getElementById('goto-login-btn').addEventListener('click', () => {
-      navigate('login-page');
-    });
-
-    // ========================================
-    // USER DASHBOARD
-    // ========================================
-
-    function renderUserDashboard(user) {
-      document.getElementById('user-welcome').textContent = `Selamat datang, ${user.name}!`;
-      
-      // Render active activities
-      const activeActivities = activities.filter(a => a.activity_status === 'aktif');
-      const listContainer = document.getElementById('user-activities-list');
-      
-      if (activeActivities.length === 0) {
-        document.getElementById('user-no-activities').classList.remove('hidden');
-        listContainer.innerHTML = '';
-      } else {
-        document.getElementById('user-no-activities').classList.add('hidden');
-        listContainer.innerHTML = activeActivities.map(activity => {
-          const hasAttended = attendances.some(att => 
-            att.user_username === user.username && att.activity_name === activity.activity_name
-          );
+    // ==================== API SERVICE ====================
+    const Api = {
+      async request(action, data = {}) {
+        try {
+          const response = await fetch(Config.API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action, data })
+          });
+          const result = await response.json();
           
-          return `
-            <div class="bg-white rounded-xl shadow-md p-6 activity-card">
-              <div class="flex items-start justify-between mb-4">
-                <div>
-                  <h3 class="text-xl font-bold text-gray-800">${activity.activity_name}</h3>
-                  <p class="text-gray-600 text-sm mt-1">📍 ${activity.activity_location}</p>
-                </div>
-                <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
-                  Aktif
-                </span>
-              </div>
-              <div class="space-y-2 mb-4">
-                <p class="text-gray-700"><strong>📅 Tanggal:</strong> ${formatDate(activity.activity_date)}</p>
-                <p class="text-gray-700"><strong>🕐 Waktu:</strong> ${activity.activity_time}</p>
-              </div>
-              ${hasAttended ? `
-                <div class="bg-green-50 border-2 border-green-200 rounded-lg p-4 text-center">
-                  <span class="text-green-600 font-semibold">✅ Anda sudah absen</span>
-                </div>
-              ` : `
-                <button onclick="openAttendanceModal('${activity.__backendId}')" 
-                  class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition btn-primary">
-                  📝 Absen Sekarang
-                </button>
-              `}
-            </div>
-          `;
-        }).join('');
+          if (result.status === 'success') return result.data;
+          else throw new Error(result.message || 'Terjadi kesalahan');
+        } catch (error) {
+          console.error("API Error:", error);
+          Utils.showToast(error.message, 'error');
+          throw error;
+        }
+      },
+
+      async login(username, password) {
+        return await Api.request('login', { username, password });
+      },
+
+      async register(formData) {
+        return await Api.request('register', formData);
+      },
+
+      async getActivities() {
+        State.allActivities = await Api.request('getActivities');
+      },
+
+      async getAttendances() {
+        State.allAttendances = await Api.request('getAttendances');
+      },
+
+      async addActivity(formData) {
+        return await Api.request('addActivity', {
+          name: formData.name,
+          date: formData.date,
+          time: formData.time,
+          location: formData.location
+        });
+      },
+
+      async toggleActivity(id) {
+        return await Api.request('toggleActivity', { id });
+      },
+
+      async deleteActivity(id) {
+        return await Api.request('deleteActivity', { id });
+      },
+
+      async submitAttendance(attendanceData) {
+        return await Api.request('submitAttendance', attendanceData);
       }
-      
-      // Render attendance history
-      const userAttendances = attendances.filter(att => att.user_username === user.username);
-      const historyContainer = document.getElementById('user-attendance-history');
-      
-      if (userAttendances.length === 0) {
-        historyContainer.innerHTML = `
-          <tr>
-            <td colspan="3" class="px-6 py-8 text-center text-gray-500">
-              Belum ada riwayat absensi
-            </td>
-          </tr>
-        `;
-      } else {
-        historyContainer.innerHTML = userAttendances
-          .sort((a, b) => new Date(b.attendance_time) - new Date(a.attendance_time))
-          .map(att => `
-            <tr class="border-t hover:bg-gray-50">
-              <td class="px-6 py-4 text-gray-800">${att.activity_name}</td>
-              <td class="px-6 py-4 text-gray-600">${formatDateTime(att.attendance_time)}</td>
-              <td class="px-6 py-4">
-                <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
-                  Hadir
-                </span>
-              </td>
+    };
+
+    // ==================== UTILITIES ====================
+    const Utils = {
+      formatDate(dateStr) {
+        if (!dateStr) return '-';
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+      },
+
+      showToast(message, type = 'success') {
+        const existing = document.getElementById('toast');
+        if (existing) existing.remove();
+        
+        const toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.className = `toast fixed top-4 right-4 px-6 py-3 rounded-lg text-white font-medium z-50 shadow-lg ${
+          type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+        }`;
+        toast.innerHTML = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+      },
+
+      async getLocation() {
+        return new Promise((resolve, reject) => {
+          if (!navigator.geolocation) {
+            reject("Geolocation tidak didukung browser ini");
+            return;
+          }
+          navigator.geolocation.getCurrentPosition(
+            (pos) => resolve({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              name: `Lat: ${pos.coords.latitude.toFixed(4)}, Lng: ${pos.coords.longitude.toFixed(4)}`
+            }),
+            (err) => reject("Gagal mendapatkan lokasi. Pastikan GPS aktif.")
+          );
+        });
+      }
+    };
+
+    // ==================== UI COMPONENTS (RENDERERS) ====================
+    const UI = {
+      render() {
+        const app = document.getElementById('app');
+        
+        if (!State.currentUser) {
+          app.innerHTML = State.currentView === 'register' ? UI.registerPage() : UI.loginPage();
+        } else {
+          if (State.currentUser.role === 'admin') {
+            app.innerHTML = UI.adminDashboard();
+          } else {
+            app.innerHTML = UI.userDashboard();
+          }
+        }
+        App.attachEvents();
+      },
+
+      loginPage() {
+        return `
+          <div class="min-h-full gradient-bg flex items-center justify-center p-4 fade-in">
+            <div class="w-full max-w-md">
+              <div class="text-center mb-8">
+                <div class="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <svg class="w-10 h-10 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                </div>
+                <h1 class="text-3xl font-bold text-white mb-2">${Config.APP_TITLE}</h1>
+                <p class="text-blue-200">${Config.RW_NAME}</p>
+              </div>
+              <div class="bg-white rounded-2xl card-shadow p-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Masuk</h2>
+                <form id="loginForm" class="space-y-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                    <input type="text" id="loginUsername" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Masukkan username">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <input type="password" id="loginPassword" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Masukkan password">
+                  </div>
+                  <button type="submit" id="loginBtn" class="w-full btn-primary text-white font-semibold py-3 rounded-lg transition-all">Masuk</button>
+                </form>
+                <div class="mt-6 text-center">
+                  <p class="text-gray-600">Belum punya akun? <button id="goToRegister" class="text-amber-600 font-semibold">Daftar Sekarang</button></p>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      },
+
+      registerPage() {
+        return `
+          <div class="min-h-full gradient-bg flex items-center justify-center p-4 fade-in">
+            <div class="w-full max-w-md">
+              <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-white mb-2">${Config.APP_TITLE}</h1>
+                <p class="text-blue-200">Registrasi Warga Baru</p>
+              </div>
+              <div class="bg-white rounded-2xl card-shadow p-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Daftar Akun</h2>
+                <form id="registerForm" class="space-y-4">
+                  <input type="text" id="regFullName" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Nama Lengkap">
+                  <select id="regRt" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none">
+                    <option value="">Pilih RT</option>
+                    ${[1,2,3,4,5,6,7,8,9,10].map(rt => `<option value="RT 0${rt < 10 ? '0' + rt : rt}">RT ${rt < 10 ? '0' + rt : rt}</option>`).join('')}
+                  </select>
+                  <input type="tel" id="regPhone" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none" placeholder="No. HP">
+                  <input type="text" id="regUsername" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Username">
+                  <input type="password" id="regPassword" required minlength="6" class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Password (Min 6)">
+                  <button type="submit" id="registerBtn" class="w-full btn-primary text-white font-semibold py-3 rounded-lg transition-all">Daftar</button>
+                </form>
+                <div class="mt-6 text-center">
+                  <button id="goToLogin" class="text-amber-600 font-semibold">← Kembali ke Login</button>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      },
+
+      userDashboard() {
+        const activities = State.allActivities.filter(a => a.activityStatus === 'active');
+        const myAttendances = State.allAttendances.filter(a => a.userId === State.currentUser.id); // Note: assuming ID mapping or filtering by name if ID differs
+
+        return `
+          <div class="min-h-full bg-gray-50 pb-20">
+            <header class="gradient-bg text-white p-4 shadow-lg sticky top-0 z-20">
+              <div class="max-w-4xl mx-auto flex justify-between items-center">
+                <div>
+                  <h1 class="text-xl font-bold">${Config.APP_TITLE}</h1>
+                  <p class="text-blue-200 text-sm">Halo, ${State.currentUser.fullName}</p>
+                </div>
+                <button id="logoutBtn" class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-sm">Keluar</button>
+              </div>
+            </header>
+            <main class="max-w-4xl mx-auto p-4 space-y-6 fade-in">
+              <div class="grid grid-cols-2 gap-4">
+                <div class="bg-white p-4 rounded-xl card-shadow">
+                  <p class="text-2xl font-bold text-gray-800">${activities.length}</p>
+                  <p class="text-sm text-gray-500">Kegiatan Aktif</p>
+                </div>
+                <div class="bg-white p-4 rounded-xl card-shadow">
+                  <p class="text-2xl font-bold text-gray-800">${myAttendances.length}</p>
+                  <p class="text-sm text-gray-500">Kehadiran Saya</p>
+                </div>
+              </div>
+              
+              <div class="bg-white rounded-xl card-shadow">
+                <div class="p-4 border-b"><h2 class="font-bold text-gray-800">📋 Kegiatan Tersedia</h2></div>
+                <div class="divide-y">
+                  ${activities.length === 0 ? '<p class="p-4 text-center text-gray-500">Tidak ada kegiatan aktif.</p>' : ''}
+                  ${activities.map(act => {
+                    const hasAttended = myAttendances.some(a => a.activityId === act.__backendId);
+                    return `
+                    <div class="p-4 flex justify-between items-center">
+                      <div>
+                        <h3 class="font-semibold text-gray-800">${act.activityName}</h3>
+                        <p class="text-sm text-gray-500">${Utils.formatDate(act.activityDate)} • ${act.activityTime}</p>
+                        <p class="text-sm text-gray-500">📍 ${act.activityLocation}</p>
+                      </div>
+                      ${hasAttended 
+                        ? '<span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">Hadir</span>' 
+                        : `<button data-attend="${act.__backendId}" class="btn-primary text-white px-3 py-1.5 rounded-lg text-sm">Absen</button>`
+                      }
+                    </div>`;
+                  }).join('')}
+                </div>
+              </div>
+
+              <div class="bg-white rounded-xl card-shadow">
+                <div class="p-4 border-b"><h2 class="font-bold text-gray-800">📝 Riwayat</h2></div>
+                <div class="divide-y max-h-60 overflow-y-auto">
+                   ${myAttendances.map(att => {
+                     const act = State.allActivities.find(a => a.__backendId === att.activityId);
+                     return `
+                     <div class="p-4 text-sm">
+                       <p class="font-semibold">${act?.activityName || 'Kegiatan Dihapus'}</p>
+                       <p class="text-gray-500">🕐 ${att.attendanceTime}</p>
+                     </div>`;
+                   }).join('')}
+                </div>
+              </div>
+            </main>
+            ${UI.attendanceModal()}
+          </div>`;
+      },
+
+      attendanceModal() {
+        return `
+          <div id="attendanceModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <div class="p-4 border-b flex justify-between">
+                <h3 class="font-bold text-lg">📸 Absensi</h3>
+                <button id="closeAttendanceModal" class="text-gray-500">&times;</button>
+              </div>
+              <div class="p-4 space-y-4">
+                <div class="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
+                  <video id="cameraVideo" autoplay playsinline class="w-full h-full object-cover"></video>
+                  <img id="capturedImage" class="w-full h-full object-cover hidden">
+                </div>
+                <div class="flex gap-2">
+                  <button id="captureBtn" class="flex-1 bg-blue-600 text-white py-2 rounded font-medium">📷 Ambil Foto</button>
+                  <button id="retakeBtn" class="flex-1 bg-gray-600 text-white py-2 rounded font-medium hidden">🔄 Ulangi</button>
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-gray-700 mb-1">Lokasi GPS</p>
+                  <div id="locationStatus" class="bg-gray-100 p-2 rounded text-sm text-gray-600">⏳ Mendeteksi...</div>
+                  <button id="refreshLocation" class="text-xs text-blue-600 mt-1">Refresh Lokasi</button>
+                </div>
+                <button id="submitAttendance" disabled class="w-full btn-primary text-white py-3 rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed">Kirim Absensi</button>
+              </div>
+            </div>
+          </div>`;
+      },
+
+      adminDashboard() {
+        return `
+          <div class="min-h-full bg-gray-50 pb-20">
+            <header class="gradient-bg text-white p-4 sticky top-0 z-20">
+              <div class="max-w-6xl mx-auto flex justify-between">
+                <div><h1 class="text-xl font-bold">${Config.APP_TITLE}</h1><p class="text-blue-200 text-sm">Admin Panel</p></div>
+                <button id="logoutBtn" class="bg-white/20 px-3 py-1 rounded text-sm">Keluar</button>
+              </div>
+            </header>
+            
+            <nav class="bg-white shadow sticky top-[60px] z-10 overflow-x-auto">
+              <div class="flex max-w-6xl mx-auto">
+                <button data-tab="dashboard" class="admin-tab px-6 py-3 border-b-2 border-amber-500 text-amber-600 font-medium whitespace-nowrap">Dashboard</button>
+                <button data-tab="activities" class="admin-tab px-6 py-3 border-b-2 border-transparent text-gray-500 font-medium whitespace-nowrap">Kegiatan</button>
+                <button data-tab="report" class="admin-tab px-6 py-3 border-b-2 border-transparent text-gray-500 font-medium whitespace-nowrap">Laporan</button>
+              </div>
+            </nav>
+
+            <main class="max-w-6xl mx-auto p-4 fade-in">
+              <!-- Dashboard Tab -->
+              <div id="tab-dashboard" class="tab-content">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div class="bg-white p-6 rounded-xl card-shadow">
+                    <p class="text-3xl font-bold text-gray-800">${State.allActivities.length}</p>
+                    <p class="text-gray-500">Total Kegiatan</p>
+                  </div>
+                  <div class="bg-white p-6 rounded-xl card-shadow">
+                    <p class="text-3xl font-bold text-gray-800">${State.allAttendances.length}</p>
+                    <p class="text-gray-500">Total Kehadiran</p>
+                  </div>
+                </div>
+                <div class="bg-white rounded-xl card-shadow overflow-hidden">
+                  <div class="p-4 border-b"><h2 class="font-bold">Kehadiran Terbaru</h2></div>
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                      <thead class="bg-gray-50"><tr><th class="p-3">Nama</th><th class="p-3">Kegiatan</th><th class="p-3">Waktu</th><th class="p-3">Foto</th></tr></thead>
+                      <tbody class="divide-y">
+                        ${State.allAttendances.slice(0, 5).map(att => {
+                          const act = State.allActivities.find(a => a.__backendId === att.activityId);
+                          return `
+                          <tr>
+                            <td class="p-3 font-medium">${att.userFullName}<br><span class="text-xs text-gray-500">${att.userRt}</span></td>
+                            <td class="p-3">${act?.activityName || '-'}</td>
+                            <td class="p-3">${att.attendanceTime}</td>
+                            <td class="p-3">
+                              ${att.photoData ? `<img src="${att.photoData}" class="w-10 h-10 rounded object-cover cursor-pointer" onclick="window.open(this.src)">` : '-'}
+                            </td>
+                          </tr>`;
+                        }).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Activities Tab -->
+              <div id="tab-activities" class="tab-content hidden">
+                <div class="bg-white rounded-xl card-shadow overflow-hidden">
+                  <div class="p-4 border-b flex justify-between items-center">
+                    <h2 class="font-bold">Daftar Kegiatan</h2>
+                    <button id="addActivityBtn" class="btn-primary text-white px-4 py-2 rounded text-sm">+ Tambah</button>
+                  </div>
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                      <thead class="bg-gray-50"><tr><th class="p-3">Nama</th><th class="p-3">Tanggal</th><th class="p-3">Status</th><th class="p-3">Aksi</th></tr></thead>
+                      <tbody class="divide-y">
+                        ${State.allActivities.map(act => `
+                          <tr>
+                            <td class="p-3 font-medium">${act.activityName}</td>
+                            <td class="p-3">${Utils.formatDate(act.activityDate)}</td>
+                            <td class="p-3"><span class="px-2 py-1 rounded-full text-xs ${act.activityStatus === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}">${act.activityStatus}</span></td>
+                            <td class="p-3 flex gap-2">
+                              <button data-toggle="${act.__backendId}" class="text-blue-600 hover:underline">${act.activityStatus === 'active' ? 'Tutup' : 'Buka'}</button>
+                              <button data-delete="${act.__backendId}" class="text-red-600 hover:underline">Hapus</button>
+                            </td>
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Report Tab -->
+              <div id="tab-report" class="tab-content hidden">
+                <div class="bg-white rounded-xl card-shadow p-4">
+                  <h2 class="font-bold mb-4">Rekap Laporan</h2>
+                  <div class="flex gap-4 flex-col md:flex-row mb-4">
+                    <select id="reportActivity" class="border p-2 rounded w-full md:w-1/2 input-focus outline-none">
+                      <option value="">Pilih Kegiatan</option>
+                      ${State.allActivities.map(act => `<option value="${act.__backendId}">${act.activityName}</option>`).join('')}
+                    </select>
+                    <button id="generateReport" class="btn-primary text-white px-4 py-2 rounded">Tampilkan</button>
+                  </div>
+                  <div id="reportResult" class="hidden overflow-x-auto">
+                    <table id="reportTable" class="w-full text-sm text-left border">
+                      <thead class="bg-gray-100"><tr><th class="p-2 border">No</th><th class="p-2 border">Nama</th><th class="p-2 border">RT</th><th class="p-2 border">Waktu</th></tr></thead>
+                      <tbody id="reportBody"></tbody>
+                    </table>
+                    <button id="exportPdf" class="mt-4 bg-red-600 text-white px-4 py-2 rounded text-sm">Download PDF</button>
+                  </div>
+                </div>
+              </div>
+            </main>
+            ${UI.activityModal()}
+            ${UI.deleteModal()}
+          </div>`;
+      },
+
+      activityModal() {
+        return `
+          <div id="activityModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl w-full max-w-md p-6">
+              <h3 class="font-bold text-lg mb-4">Tambah Kegiatan</h3>
+              <form id="activityForm" class="space-y-4">
+                <input type="text" id="actName" required class="w-full border p-2 rounded input-focus outline-none" placeholder="Nama Kegiatan">
+                <input type="date" id="actDate" required class="w-full border p-2 rounded input-focus outline-none">
+                <input type="time" id="actTime" required class="w-full border p-2 rounded input-focus outline-none">
+                <input type="text" id="actLocation" required class="w-full border p-2 rounded input-focus outline-none" placeholder="Lokasi">
+                <div class="flex gap-2">
+                  <button type="button" id="closeActivityModal" class="flex-1 bg-gray-200 text-gray-800 py-2 rounded">Batal</button>
+                  <button type="submit" class="flex-1 btn-primary text-white py-2 rounded">Simpan</button>
+                </div>
+              </form>
+            </div>
+          </div>`;
+      },
+
+      deleteModal() {
+        return `
+          <div id="deleteModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl w-full max-w-sm p-6 text-center">
+              <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2 text-red-600">⚠️</div>
+              <h3 class="font-bold text-lg mb-2">Hapus Kegiatan?</h3>
+              <p class="text-sm text-gray-500 mb-4">Data tidak bisa dikembalikan.</p>
+              <div class="flex gap-2">
+                <button id="cancelDelete" class="flex-1 bg-gray-200 py-2 rounded">Batal</button>
+                <button id="confirmDelete" class="flex-1 bg-red-600 text-white py-2 rounded">Hapus</button>
+              </div>
+            </div>
+          </div>`;
+      }
+    };
+
+    // ==================== MAIN APP CONTROLLER ====================
+    const App = {
+      async init() {
+        try {
+          // Check local storage for session
+          const session = localStorage.getItem('rw_session');
+          if (session) {
+            State.currentUser = JSON.parse(session);
+            await App.loadData();
+          }
+        } catch (e) { console.error(e); }
+        UI.render();
+      },
+
+      async loadData() {
+        try {
+          await Promise.all([Api.getActivities(), Api.getAttendances()]);
+          UI.render(); // Re-render after data load
+        } catch (e) {
+          console.error("Gagal memuat data", e);
+        }
+      },
+
+      attachEvents() {
+        // Forms
+        document.getElementById('loginForm')?.addEventListener('submit', App.handlers.login);
+        document.getElementById('registerForm')?.addEventListener('submit', App.handlers.register);
+        document.getElementById('activityForm')?.addEventListener('submit', App.handlers.addActivity);
+
+        // Navigation
+        document.getElementById('goToRegister')?.addEventListener('click', () => { State.currentView = 'register'; UI.render(); });
+        document.getElementById('goToLogin')?.addEventListener('click', () => { State.currentView = 'login'; UI.render(); });
+        document.getElementById('logoutBtn')?.addEventListener('click', App.handlers.logout);
+
+        // Tabs (Admin)
+        document.querySelectorAll('.admin-tab').forEach(tab => {
+          tab.addEventListener('click', (e) => {
+            const target = e.target.dataset.tab;
+            document.querySelectorAll('.admin-tab').forEach(t => {
+              t.classList.remove('border-amber-500', 'text-amber-600');
+              t.classList.add('border-transparent');
+            });
+            e.target.classList.remove('border-transparent');
+            e.target.classList.add('border-amber-500', 'text-amber-600');
+            
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            document.getElementById(`tab-${target}`).classList.remove('hidden');
+          });
+        });
+
+        // Modals
+        document.getElementById('addActivityBtn')?.addEventListener('click', () => {
+          document.getElementById('activityModal').classList.remove('hidden');
+        });
+        document.getElementById('closeActivityModal')?.addEventListener('click', () => {
+          document.getElementById('activityModal').classList.add('hidden');
+          document.getElementById('activityForm').reset();
+        });
+
+        // Activity Actions
+        document.querySelectorAll('[data-toggle]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const btnOrig = btn.textContent;
+            btn.textContent = '...';
+            await Api.toggleActivity(btn.dataset.toggle);
+            await App.loadData();
+          });
+        });
+
+        document.querySelectorAll('[data-delete]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            State.temp.deleteActivityId = btn.dataset.delete;
+            document.getElementById('deleteModal').classList.remove('hidden');
+          });
+        });
+
+        document.getElementById('cancelDelete')?.addEventListener('click', () => {
+          document.getElementById('deleteModal').classList.add('hidden');
+        });
+
+        document.getElementById('confirmDelete')?.addEventListener('click', async () => {
+          await Api.deleteActivity(State.temp.deleteActivityId);
+          document.getElementById('deleteModal').classList.add('hidden');
+          await App.loadData();
+        });
+
+        // Attendance Flow
+        document.querySelectorAll('[data-attend]').forEach(btn => {
+          btn.addEventListener('click', () => App.handlers.openAttendanceModal(btn.dataset.attend));
+        });
+
+        document.getElementById('closeAttendanceModal')?.addEventListener('click', App.handlers.closeAttendanceModal);
+        document.getElementById('captureBtn')?.addEventListener('click', App.handlers.capturePhoto);
+        document.getElementById('retakeBtn')?.addEventListener('click', () => {
+          document.getElementById('capturedImage').classList.add('hidden');
+          document.getElementById('cameraVideo').classList.remove('hidden');
+          document.getElementById('captureBtn').classList.remove('hidden');
+          document.getElementById('retakeBtn').classList.add('hidden');
+          State.temp.capturedPhoto = null;
+          App.updateSubmitBtn();
+        });
+        
+        document.getElementById('refreshLocation')?.addEventListener('click', App.handlers.getLocation);
+        document.getElementById('submitAttendance')?.addEventListener('click', App.handlers.submitAttendance);
+
+        // Reports
+        document.getElementById('generateReport')?.addEventListener('click', App.handlers.generateReport);
+        document.getElementById('exportPdf')?.addEventListener('click', App.handlers.exportPdf);
+      },
+
+      updateSubmitBtn() {
+        const btn = document.getElementById('submitAttendance');
+        if (btn) {
+          btn.disabled = !(State.temp.capturedPhoto && State.temp.location);
+        }
+      },
+
+      handlers: {
+        async login(e) {
+          e.preventDefault();
+          const userIn = document.getElementById('loginUsername').value;
+          const passIn = document.getElementById('loginPassword').value;
+          const btn = document.getElementById('loginBtn');
+          
+          btn.disabled = true; btn.innerHTML = '<div class="loader mx-auto"></div>';
+
+          try {
+            // Special admin bypass for demo or if database is empty
+            let user;
+            if(userIn === 'admin' && passIn === 'admin123') {
+               user = { id: 'admin', username: 'admin', fullName: 'Administrator', role: 'admin' };
+            } else {
+               user = await Api.login(userIn, passIn);
+            }
+
+            State.currentUser = user;
+            localStorage.setItem('rw_session', JSON.stringify(user));
+            await App.loadData();
+            Utils.showToast('Login Berhasil');
+          } catch (err) {
+            btn.disabled = false; btn.textContent = 'Masuk';
+          }
+        },
+
+        async register(e) {
+          e.preventDefault();
+          const btn = document.getElementById('registerBtn');
+          const data = {
+            fullName: document.getElementById('regFullName').value,
+            rt: document.getElementById('regRt').value,
+            phone: document.getElementById('regPhone').value,
+            username: document.getElementById('regUsername').value,
+            password: document.getElementById('regPassword').value
+          };
+
+          btn.disabled = true; btn.innerHTML = '<div class="loader mx-auto"></div>';
+
+          try {
+            await Api.register(data);
+            Utils.showToast('Registrasi Berhasil');
+            State.currentView = 'login';
+            UI.render();
+          } catch (err) {
+            btn.disabled = false; btn.textContent = 'Daftar';
+          }
+        },
+
+        logout() {
+          State.currentUser = null;
+          localStorage.removeItem('rw_session');
+          State.currentView = 'login';
+          UI.render();
+          Utils.showToast('Keluar');
+        },
+
+        async addActivity(e) {
+          e.preventDefault();
+          const btn = document.querySelector('#activityForm button[type="submit"]');
+          const data = {
+            name: document.getElementById('actName').value,
+            date: document.getElementById('actDate').value,
+            time: document.getElementById('actTime').value,
+            location: document.getElementById('actLocation').value
+          };
+          
+          btn.disabled = true;
+          try {
+            await Api.addActivity(data);
+            document.getElementById('activityModal').classList.add('hidden');
+            document.getElementById('activityForm').reset();
+            await App.loadData();
+          } finally {
+            btn.disabled = false;
+          }
+        },
+
+        async openAttendanceModal(actId) {
+          State.temp.selectedActivityId = actId;
+          State.temp.capturedPhoto = null;
+          State.temp.location = null;
+          
+          const modal = document.getElementById('attendanceModal');
+          modal.classList.remove('hidden');
+          
+          // Reset view
+          document.getElementById('capturedImage').classList.add('hidden');
+          document.getElementById('cameraVideo').classList.remove('hidden');
+          document.getElementById('captureBtn').classList.remove('hidden');
+          document.getElementById('retakeBtn').classList.add('hidden');
+          document.getElementById('locationStatus').textContent = '⏳ Mendeteksi lokasi...';
+          document.getElementById('submitAttendance').disabled = true;
+
+          // Start Camera
+          try {
+            if (State.temp.videoStream) State.temp.videoStream.getTracks().forEach(track => track.stop());
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+            State.temp.videoStream = stream;
+            document.getElementById('cameraVideo').srcObject = stream;
+          } catch (err) {
+            Utils.showToast('Gagal akses kamera', 'error');
+          }
+
+          // Get Location
+          App.handlers.getLocation();
+        },
+
+        closeAttendanceModal() {
+          if (State.temp.videoStream) {
+            State.temp.videoStream.getTracks().forEach(track => track.stop());
+            State.temp.videoStream = null;
+          }
+          document.getElementById('attendanceModal').classList.add('hidden');
+        },
+
+        capturePhoto() {
+          const video = document.getElementById('cameraVideo');
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          canvas.getContext('2d').drawImage(video, 0, 0);
+          
+          // Resize to limit base64 length for Google Sheets (approx 300x300)
+          const resizedCanvas = document.createElement('canvas');
+          const maxSize = 300;
+          let width = canvas.width;
+          let height = canvas.height;
+          if (width > height) { if (width > maxSize) { height *= maxSize / width; width = maxSize; } }
+          else { if (height > maxSize) { width *= maxSize / height; height = maxSize; } }
+          resizedCanvas.width = width;
+          resizedCanvas.height = height;
+          resizedCanvas.getContext('2d').drawImage(canvas, 0, 0, width, height);
+
+          State.temp.capturedPhoto = resizedCanvas.toDataURL('image/jpeg', 0.7);
+          
+          document.getElementById('capturedImage').src = State.temp.capturedPhoto;
+          document.getElementById('capturedImage').classList.remove('hidden');
+          document.getElementById('cameraVideo').classList.add('hidden');
+          document.getElementById('captureBtn').classList.add('hidden');
+          document.getElementById('retakeBtn').classList.remove('hidden');
+          
+          // Stop stream to save battery
+          State.temp.videoStream.getTracks().forEach(track => track.stop());
+          
+          App.updateSubmitBtn();
+        },
+
+        async getLocation() {
+          const status = document.getElementById('locationStatus');
+          status.textContent = '🔄 Sedang mencari...';
+          try {
+            const loc = await Utils.getLocation();
+            State.temp.location = loc;
+            status.textContent = `📍 ${loc.name}`;
+          } catch (err) {
+            status.textContent = `❌ ${err}`;
+            State.temp.location = null;
+          }
+          App.updateSubmitBtn();
+        },
+
+        async submitAttendance() {
+          if (!State.temp.capturedPhoto || !State.temp.location) return;
+          
+          const btn = document.getElementById('submitAttendance');
+          btn.disabled = true; btn.textContent = 'Mengirim...';
+
+          try {
+            await Api.submitAttendance({
+              activityId: State.temp.selectedActivityId,
+              userId: State.currentUser.id, // Or username if ID differs
+              userName: State.currentUser.fullName,
+              userRt: State.currentUser.rt,
+              photoData: State.temp.capturedPhoto,
+              location: State.temp.location
+            });
+            Utils.showToast('Absensi Berhasil!');
+            App.handlers.closeAttendanceModal();
+            await App.loadData(); // Refresh history
+          } catch (err) {
+            btn.disabled = false; btn.textContent = 'Kirim Absensi';
+          }
+        },
+
+        generateReport() {
+          const actId = document.getElementById('reportActivity').value;
+          if (!actId) return Utils.showToast('Pilih kegiatan dulu', 'error');
+
+          const reportData = State.allAttendances.filter(a => a.activityId === actId);
+          const tbody = document.getElementById('reportBody');
+          
+          tbody.innerHTML = reportData.map((d, i) => `
+            <tr>
+              <td class="p-2 border text-center">${i + 1}</td>
+              <td class="p-2 border">${d.userFullName}</td>
+              <td class="p-2 border">${d.userRt}</td>
+              <td class="p-2 border">${d.attendanceTime.split('T')[1]?.substring(0,5)}</td>
             </tr>
           `).join('');
-      }
-    }
-
-    document.getElementById('user-logout-btn').addEventListener('click', () => {
-      currentUser = null;
-      isAdmin = false;
-      navigate('login-page');
-      showToast('Logout berhasil', 'success');
-    });
-
-    // ========================================
-    // ADMIN DASHBOARD
-    // ========================================
-
-    function renderAdminDashboard() {
-      // Update statistics
-      document.getElementById('stat-users').textContent = users.length;
-      document.getElementById('stat-activities').textContent = activities.length;
-      document.getElementById('stat-active').textContent = activities.filter(a => a.activity_status === 'aktif').length;
-      document.getElementById('stat-attendances').textContent = attendances.length;
-      
-      // Render activities list
-      renderActivitiesList();
-      renderUsersTable();
-      renderAttendancesTable();
-      updateActivityFilter();
-    }
-
-    function renderActivitiesList() {
-      const container = document.getElementById('activities-list');
-      
-      if (activities.length === 0) {
-        container.innerHTML = `
-          <div class="text-center py-12 text-gray-500">
-            <span class="text-6xl mb-4 block">📅</span>
-            <p class="text-xl">Belum ada kegiatan</p>
-          </div>
-        `;
-        return;
-      }
-      
-      container.innerHTML = activities.map(activity => {
-        const attendanceCount = attendances.filter(att => att.activity_name === activity.activity_name).length;
-        const statusColors = {
-          'aktif': 'bg-green-100 text-green-800',
-          'selesai': 'bg-gray-100 text-gray-800',
-          'dibatalkan': 'bg-red-100 text-red-800'
-        };
-        
-        return `
-          <div class="border-2 border-gray-200 rounded-xl p-6 hover:border-blue-300 transition">
-            <div class="flex items-start justify-between mb-4">
-              <div class="flex-1">
-                <h3 class="text-xl font-bold text-gray-800 mb-2">${activity.activity_name}</h3>
-                <div class="space-y-1 text-gray-700">
-                  <p><strong>📅 Tanggal:</strong> ${formatDate(activity.activity_date)}</p>
-                  <p><strong>🕐 Waktu:</strong> ${activity.activity_time}</p>
-                  <p><strong>📍 Lokasi:</strong> ${activity.activity_location}</p>
-                  <p><strong>👥 Peserta Hadir:</strong> ${attendanceCount} orang</p>
-                </div>
-              </div>
-              <span class="px-4 py-2 rounded-full text-sm font-semibold ${statusColors[activity.activity_status]}">
-                ${activity.activity_status.toUpperCase()}
-              </span>
-            </div>
-            <div class="flex gap-3">
-              <button onclick="editActivity('${activity.__backendId}')" 
-                class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">
-                ✏️ Edit
-              </button>
-              <button onclick="deleteActivity('${activity.__backendId}')" 
-                class="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition">
-                🗑️ Hapus
-              </button>
-              <button onclick="viewActivityDetail('${activity.__backendId}')" 
-                class="flex-1 bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700 transition">
-                👁️ Detail
-              </button>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function renderUsersTable() {
-      const tbody = document.getElementById('users-table-body');
-      
-      if (users.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="5" class="px-6 py-8 text-center text-gray-500">
-              Belum ada warga terdaftar
-            </td>
-          </tr>
-        `;
-        return;
-      }
-      
-      tbody.innerHTML = users.map(user => `
-        <tr class="border-t hover:bg-gray-50">
-          <td class="px-6 py-4 text-gray-800 font-semibold">${user.name}</td>
-          <td class="px-6 py-4 text-gray-600">${user.username}</td>
-          <td class="px-6 py-4 text-gray-600">${user.rt}</td>
-          <td class="px-6 py-4 text-gray-600">${user.position}</td>
-          <td class="px-6 py-4 text-gray-600">${user.phone}</td>
-        </tr>
-      `).join('');
-    }
-
-    function renderAttendancesTable() {
-      const tbody = document.getElementById('attendances-table-body');
-      const filterActivity = document.getElementById('filter-activity').value;
-      
-      let filteredAttendances = attendances;
-      if (filterActivity) {
-        filteredAttendances = attendances.filter(att => att.activity_name === filterActivity);
-      }
-      
-      if (filteredAttendances.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="5" class="px-6 py-8 text-center text-gray-500">
-              Belum ada data absensi
-            </td>
-          </tr>
-        `;
-        return;
-      }
-      
-      tbody.innerHTML = filteredAttendances
-        .sort((a, b) => new Date(b.attendance_time) - new Date(a.attendance_time))
-        .map(att => {
-          const user = users.find(u => u.username === att.user_username);
-          const userName = user ? user.name : att.user_username;
           
-          return `
-            <tr class="border-t hover:bg-gray-50">
-              <td class="px-6 py-4 text-gray-800 font-semibold">${userName}</td>
-              <td class="px-6 py-4 text-gray-600">${att.activity_name}</td>
-              <td class="px-6 py-4 text-gray-600">${formatDateTime(att.attendance_time)}</td>
-              <td class="px-6 py-4">
-                <button onclick="viewImage('${att.attendance_photo}')" class="text-blue-600 hover:underline">
-                  👁️ Lihat Foto
-                </button>
-              </td>
-              <td class="px-6 py-4">
-                <button onclick="viewImage('${att.signature}')" class="text-blue-600 hover:underline">
-                  👁️ Lihat TTD
-                </button>
-              </td>
-            </tr>
-          `;
-        }).join('');
-    }
+          document.getElementById('reportResult').classList.remove('hidden');
+        },
 
-    function updateActivityFilter() {
-      const select = document.getElementById('filter-activity');
-      select.innerHTML = '<option value="">Semua Kegiatan</option>' + 
-        activities.map(act => `<option value="${act.activity_name}">${act.activity_name}</option>`).join('');
-    }
-
-    // Tab switching
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const tab = btn.dataset.tab;
-        
-        // Update button styles
-        document.querySelectorAll('.tab-btn').forEach(b => {
-          b.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
-          b.classList.add('text-gray-600');
-        });
-        btn.classList.remove('text-gray-600');
-        btn.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
-        
-        // Show/hide content
-        document.querySelectorAll('.tab-content').forEach(content => {
-          content.classList.add('hidden');
-        });
-        document.getElementById('tab-' + tab).classList.remove('hidden');
-      });
-    });
-
-    document.getElementById('filter-activity').addEventListener('change', renderAttendancesTable);
-
-    document.getElementById('admin-logout-btn').addEventListener('click', () => {
-      currentUser = null;
-      isAdmin = false;
-      navigate('login-page');
-      showToast('Logout berhasil', 'success');
-    });
-
-    // ========================================
-    // ACTIVITY MANAGEMENT
-    // ========================================
-
-    document.getElementById('add-activity-btn').addEventListener('click', () => {
-      document.getElementById('activity-modal-title').textContent = 'Tambah Kegiatan Baru';
-      document.getElementById('activity-form').reset();
-      document.getElementById('activity-id').value = '';
-      document.getElementById('activity-modal').classList.remove('hidden');
-    });
-
-    document.getElementById('activity-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const btn = document.getElementById('save-activity-btn');
-      
-      btn.disabled = true;
-      btn.textContent = 'Menyimpan...';
-
-      const activityId = document.getElementById('activity-id').value;
-      const activityData = {
-        activity_name: document.getElementById('activity-name').value.trim(),
-        activity_date: document.getElementById('activity-date').value,
-        activity_time: document.getElementById('activity-time').value,
-        activity_location: document.getElementById('activity-location').value.trim(),
-        activity_status: document.getElementById('activity-status').value,
-        created_at: new Date().toISOString()
-      };
-
-      let result;
-      if (activityId) {
-        // Update
-        const activity = activities.find(a => a.__backendId === activityId);
-        result = await updateData({ ...activity, ...activityData });
-      } else {
-        // Create
-        result = await createData({ type: 'activity', ...activityData });
-      }
-
-      if (result.isOk) {
-        showToast(activityId ? 'Kegiatan diperbarui!' : 'Kegiatan ditambahkan!', 'success');
-        document.getElementById('activity-modal').classList.add('hidden');
-        renderActivitiesList();
-        updateActivityFilter();
-      } else {
-        showToast('Gagal menyimpan: ' + (result.error || 'Unknown error'), 'error');
-      }
-
-      btn.disabled = false;
-      btn.textContent = 'Simpan';
-    });
-
-    document.getElementById('cancel-activity-btn').addEventListener('click', () => {
-      document.getElementById('activity-modal').classList.add('hidden');
-    });
-
-    function editActivity(id) {
-      const activity = activities.find(a => a.__backendId === id);
-      if (!activity) return;
-      
-      document.getElementById('activity-modal-title').textContent = 'Edit Kegiatan';
-      document.getElementById('activity-id').value = id;
-      document.getElementById('activity-name').value = activity.activity_name;
-      document.getElementById('activity-date').value = activity.activity_date;
-      document.getElementById('activity-time').value = activity.activity_time;
-      document.getElementById('activity-location').value = activity.activity_location;
-      document.getElementById('activity-status').value = activity.activity_status;
-      document.getElementById('activity-modal').classList.remove('hidden');
-    }
-
-    async function deleteActivity(id) {
-      const activity = activities.find(a => a.__backendId === id);
-      if (!activity) return;
-      
-      // Custom confirmation dialog
-      const confirmed = await showConfirmDialog(
-        'Hapus Kegiatan',
-        `Yakin ingin menghapus kegiatan "${activity.activity_name}"?`
-      );
-      
-      if (!confirmed) return;
-
-      const result = await deleteData(activity);
-
-      if (result.isOk) {
-        showToast('Kegiatan berhasil dihapus', 'success');
-        renderActivitiesList();
-        updateActivityFilter();
-      } else {
-        showToast('Gagal menghapus: ' + (result.error || 'Unknown error'), 'error');
-      }
-    }
-
-    function viewActivityDetail(id) {
-      const activity = activities.find(a => a.__backendId === id);
-      if (!activity) return;
-      
-      const activityAttendances = attendances.filter(att => att.activity_name === activity.activity_name);
-      const attendeesList = activityAttendances.map(att => {
-        const user = users.find(u => u.username === att.user_username);
-        return user ? user.name : att.user_username;
-      }).join(', ');
-      
-      showToast(
-        `Detail Kegiatan: ${activity.activity_name}\n\nPeserta Hadir (${activityAttendances.length}):\n${attendeesList || 'Belum ada peserta'}`,
-        'info',
-        8000
-      );
-    }
-
-    // ========================================
-    // ATTENDANCE
-    // ========================================
-
-    function openAttendanceModal(activityId) {
-      const activity = activities.find(a => a.__backendId === activityId);
-      if (!activity) return;
-      
-      currentActivityForAttendance = activity;
-      document.getElementById('attendance-activity-name').textContent = activity.activity_name;
-      document.getElementById('attendance-modal').classList.remove('hidden');
-      
-      // Reset form
-      capturedAttendancePhoto = null;
-      document.getElementById('attendance-preview').classList.add('hidden');
-      document.getElementById('signature-section').classList.add('hidden');
-      document.getElementById('submit-btn').classList.add('hidden');
-      document.getElementById('start-camera-btn').classList.remove('hidden');
-      document.getElementById('capture-photo-btn').classList.add('hidden');
-      document.getElementById('retake-photo-btn').classList.add('hidden');
-      
-      if (signaturePad) {
-        const canvas = document.getElementById('signature-pad');
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
-    }
-
-    document.getElementById('start-camera-btn').addEventListener('click', async () => {
-      try {
-        mediaStream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'user', width: 640, height: 480 } 
-        });
-        const video = document.getElementById('attendance-video');
-        video.srcObject = mediaStream;
-        video.classList.remove('hidden');
-        document.getElementById('start-camera-btn').classList.add('hidden');
-        document.getElementById('capture-photo-btn').classList.remove('hidden');
-        showToast('Kamera berhasil dibuka', 'success');
-      } catch (error) {
-        showToast('Gagal membuka kamera: ' + error.message, 'error');
-      }
-    });
-
-    document.getElementById('capture-photo-btn').addEventListener('click', () => {
-      const video = document.getElementById('attendance-video');
-      const canvas = document.getElementById('attendance-canvas');
-      const ctx = canvas.getContext('2d');
-      
-      canvas.width = 320;
-      canvas.height = 240;
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      capturedAttendancePhoto = canvas.toDataURL('image/jpeg', 0.7);
-      
-      // Stop camera
-      if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-        mediaStream = null;
-      }
-      
-      video.classList.add('hidden');
-      document.getElementById('attendance-preview-img').src = capturedAttendancePhoto;
-      document.getElementById('attendance-preview').classList.remove('hidden');
-      document.getElementById('capture-photo-btn').classList.add('hidden');
-      document.getElementById('retake-photo-btn').classList.remove('hidden');
-      document.getElementById('signature-section').classList.remove('hidden');
-      document.getElementById('submit-btn').classList.remove('hidden');
-      
-      initSignaturePad();
-      showToast('Foto berhasil diambil! Silakan tanda tangan.', 'success');
-    });
-
-    document.getElementById('retake-photo-btn').addEventListener('click', async () => {
-      capturedAttendancePhoto = null;
-      document.getElementById('attendance-preview').classList.add('hidden');
-      document.getElementById('signature-section').classList.add('hidden');
-      document.getElementById('submit-btn').classList.add('hidden');
-      document.getElementById('retake-photo-btn').classList.add('hidden');
-      document.getElementById('start-camera-btn').classList.remove('hidden');
-    });
-
-    function initSignaturePad() {
-      const canvas = document.getElementById('signature-pad');
-      const ctx = canvas.getContext('2d');
-      
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-      
-      let drawing = false;
-      let lastX = 0;
-      let lastY = 0;
-      
-      const startDrawing = (e) => {
-        drawing = true;
-        const rect = canvas.getBoundingClientRect();
-        const touch = e.touches ? e.touches[0] : e;
-        lastX = touch.clientX - rect.left;
-        lastY = touch.clientY - rect.top;
-      };
-      
-      const draw = (e) => {
-        if (!drawing) return;
-        e.preventDefault();
-        
-        const rect = canvas.getBoundingClientRect();
-        const touch = e.touches ? e.touches[0] : e;
-        const x = touch.clientX - rect.left;
-        const y = touch.clientY - rect.top;
-        
-        ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
-        ctx.lineTo(x, y);
-        ctx.stroke();
-        
-        lastX = x;
-        lastY = y;
-      };
-      
-      const stopDrawing = () => {
-        drawing = false;
-      };
-      
-      canvas.addEventListener('mousedown', startDrawing);
-      canvas.addEventListener('mousemove', draw);
-      canvas.addEventListener('mouseup', stopDrawing);
-      canvas.addEventListener('mouseout', stopDrawing);
-      
-      canvas.addEventListener('touchstart', startDrawing);
-      canvas.addEventListener('touchmove', draw);
-      canvas.addEventListener('touchend', stopDrawing);
-    }
-
-    document.getElementById('clear-signature-btn').addEventListener('click', () => {
-      const canvas = document.getElementById('signature-pad');
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    });
-
-    document.getElementById('submit-attendance-btn').addEventListener('click', async () => {
-      if (!capturedAttendancePhoto) {
-        showToast('Silakan ambil foto terlebih dahulu', 'error');
-        return;
-      }
-      
-      const canvas = document.getElementById('signature-pad');
-      const signatureData = canvas.toDataURL('image/png');
-      
-      // Check if signature is empty
-      const ctx = canvas.getContext('2d');
-      const pixelData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-      const isEmpty = !Array.from(pixelData).some(channel => channel !== 0);
-      
-      if (isEmpty) {
-        showToast('Silakan tanda tangan terlebih dahulu', 'error');
-        return;
-      }
-      
-      const btn = document.getElementById('submit-attendance-btn');
-      btn.disabled = true;
-      btn.textContent = 'Mengirim...';
-
-      const attendanceData = {
-        type: 'attendance',
-        user_username: currentUser.username,
-        activity_name: currentActivityForAttendance.activity_name,
-        attendance_photo: capturedAttendancePhoto,
-        signature: signatureData,
-        attendance_time: new Date().toISOString()
-      };
-
-      const result = await createData(attendanceData);
-
-      if (result.isOk) {
-        showToast('Absensi berhasil disimpan!', 'success');
-        document.getElementById('attendance-modal').classList.add('hidden');
-        
-        // Stop camera if still running
-        if (mediaStream) {
-          mediaStream.getTracks().forEach(track => track.stop());
-          mediaStream = null;
+        exportPdf() {
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF();
+          
+          const actName = document.getElementById('reportActivity').options[document.getElementById('reportActivity').selectedIndex].text;
+          
+          doc.text(`Laporan Absensi: ${actName}`, 14, 15);
+          doc.autoTable({ html: '#reportTable', startY: 20 });
+          doc.save('laporan-absensi.pdf');
         }
-        
-        renderUserDashboard(currentUser);
-      } else {
-        showToast('Gagal menyimpan absensi: ' + (result.error || 'Unknown error'), 'error');
       }
+    };
 
-      btn.disabled = false;
-      btn.textContent = '✅ Submit Absensi';
-    });
-
-    document.getElementById('cancel-attendance-btn').addEventListener('click', () => {
-      if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-        mediaStream = null;
-      }
-      document.getElementById('attendance-modal').classList.add('hidden');
-    });
-
-    // ========================================
-    // EXPORT & PRINT
-    // ========================================
-
-    document.getElementById('export-csv-btn').addEventListener('click', () => {
-      const filterActivity = document.getElementById('filter-activity').value;
-      let data = attendances;
-      
-      if (filterActivity) {
-        data = attendances.filter(att => att.activity_name === filterActivity);
-      }
-      
-      if (data.length === 0) {
-        showToast('Tidak ada data untuk di-export', 'error');
-        return;
-      }
-      
-      let csv = 'Nama,Kegiatan,Username,Waktu Absen\n';
-      data.forEach(att => {
-        const user = users.find(u => u.username === att.user_username);
-        const userName = user ? user.name : att.user_username;
-        csv += `"${userName}","${att.activity_name}","${att.user_username}","${formatDateTime(att.attendance_time)}"\n`;
-      });
-      
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `absensi_${filterActivity || 'semua'}_${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
-      
-      showToast('CSV berhasil di-download!', 'success');
-    });
-
-    document.getElementById('print-attendance-btn').addEventListener('click', () => {
-      const filterActivity = document.getElementById('filter-activity').value;
-      let data = attendances;
-      
-      if (filterActivity) {
-        data = attendances.filter(att => att.activity_name === filterActivity);
-      }
-      
-      if (data.length === 0) {
-        showToast('Tidak ada data untuk dicetak', 'error');
-        return;
-      }
-      
-      const printWindow = window.open('', '_blank');
-      printWindow.document.write(`
-        <html>
-        <head>
-          <title>Daftar Hadir - ${filterActivity || 'Semua Kegiatan'}</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { text-align: center; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-            th { background: #f0f0f0; }
-            @media print {
-              button { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <h1>DAFTAR HADIR KEGIATAN</h1>
-          <h2 style="text-align: center;">${filterActivity || 'Semua Kegiatan'}</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>No</th>
-                <th>Nama</th>
-                <th>Kegiatan</th>
-                <th>Waktu Absen</th>
-                <th>Tanda Tangan</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.map((att, index) => {
-                const user = users.find(u => u.username === att.user_username);
-                const userName = user ? user.name : att.user_username;
-                return `
-                  <tr>
-                    <td>${index + 1}</td>
-                    <td>${userName}</td>
-                    <td>${att.activity_name}</td>
-                    <td>${formatDateTime(att.attendance_time)}</td>
-                    <td style="width: 150px; height: 60px;"></td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-          <br>
-          <button onclick="window.print()" style="padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 5px; cursor: pointer;">
-            🖨️ Cetak
-          </button>
-        </body>
-        </html>
-      `);
-      printWindow.document.close();
-    });
-
-    // ========================================
-    // UTILITY FUNCTIONS
-    // ========================================
-
-    function showToast(message, type = 'success', duration = 3000) {
-      const toast = document.createElement('div');
-      toast.className = 'toast';
-      
-      const icons = {
-        success: '✅',
-        error: '❌',
-        info: 'ℹ️',
-        warning: '⚠️'
-      };
-      
-      const colors = {
-        success: 'border-l-4 border-green-500',
-        error: 'border-l-4 border-red-500',
-        info: 'border-l-4 border-blue-500',
-        warning: 'border-l-4 border-yellow-500'
-      };
-      
-      toast.classList.add(colors[type]);
-      toast.innerHTML = `
-        <div class="flex items-center gap-3">
-          <span class="text-2xl">${icons[type]}</span>
-          <p class="text-gray-800 font-medium">${message}</p>
-        </div>
-      `;
-      
-      document.body.appendChild(toast);
-      
-      setTimeout(() => {
-        toast.classList.add('removing');
-        setTimeout(() => toast.remove(), 300);
-      }, duration);
-    }
-
-    function showConfirmDialog(title, message) {
-      return new Promise((resolve) => {
-        const dialog = document.createElement('div');
-        dialog.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop';
-        dialog.innerHTML = `
-          <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">${title}</h2>
-            <p class="text-gray-600 mb-6">${message}</p>
-            <div class="flex gap-4">
-              <button id="confirm-yes" class="flex-1 bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition">
-                Ya, Hapus
-              </button>
-              <button id="confirm-no" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition">
-                Batal
-              </button>
-            </div>
-          </div>
-        `;
-        
-        document.body.appendChild(dialog);
-        
-        document.getElementById('confirm-yes').addEventListener('click', () => {
-          dialog.remove();
-          resolve(true);
-        });
-        
-        document.getElementById('confirm-no').addEventListener('click', () => {
-          dialog.remove();
-          resolve(false);
-        });
-      });
-    }
-
-    function viewImage(base64Data) {
-      const dialog = document.createElement('div');
-      dialog.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop';
-      dialog.innerHTML = `
-        <div class="bg-white rounded-2xl shadow-2xl p-4 max-w-2xl w-full">
-          <img src="${base64Data}" class="w-full rounded-lg">
-          <button onclick="this.closest('.modal-backdrop').remove()" 
-            class="w-full mt-4 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition">
-            Tutup
-          </button>
-        </div>
-      `;
-      
-      document.body.appendChild(dialog);
-    }
-
-    function formatDate(dateString) {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('id-ID', { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
-    }
-
-    function formatDateTime(dateString) {
-      const date = new Date(dateString);
-      return date.toLocaleString('id-ID', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    }
-
-    function renderCurrentView() {
-      if (isAdmin && currentUser) {
-        renderAdminDashboard();
-      } else if (!isAdmin && currentUser) {
-        renderUserDashboard(currentUser);
-      }
-    }
-
-    // ========================================
-    // INIT ON PAGE LOAD
-    // ========================================
-    
-    window.addEventListener('DOMContentLoaded', initApp);
+    // Initialize App
+    App.init();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c28ffd4c319e77e',t:'MTc2OTE4OTIyMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
-
-
