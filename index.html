@@ -397,7 +397,7 @@
     // ========================================
     
     // ⚠️ GANTI URL INI DENGAN WEB APP URL ANDA!
-    const GOOGLE_SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbyQE284RBROqwH4HXQy025zuc7vPuRKRpfaRAV7duAClo4aOENGSumUE5O21tNwH-kNBQ/exec';
+    const GOOGLE_SHEETS_API_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';
     
     // ========================================
     // GLOBAL STATE
@@ -579,7 +579,7 @@
       console.log('🚀 Initializing app...');
       
       // Check API URL
-      if (GOOGLE_SHEETS_API_URL.includes('YOUR_DEPLOYMENT_ID')) {
+      if (GOOGLE_SHEETS_API_URL.includes('AKfycbyQE284RBROqwH4HXQy025zuc7vPuRKRpfaRAV7duAClo4aOENGSumUE5O21tNwH-kNBQ')) {
         document.getElementById('loading-screen').innerHTML = `
           <div class="text-center">
             <span class="text-6xl mb-4">⚠️</span>
@@ -708,33 +708,35 @@
       btn.disabled = true;
       btn.textContent = 'Memproses...';
 
-      // Check admin
-      const admin = admins.find(a => a.username === username && a.password === password);
-      if (admin) {
-        isAdmin = true;
-        currentUser = admin;
-        showToast('Selamat datang Admin!', 'success');
-        navigate('admin-dashboard', { admin: true });
+      try {
+        // Check admin
+        const admin = admins.find(a => a.username === username && a.password === password);
+        if (admin) {
+          isAdmin = true;
+          currentUser = admin;
+          showToast('Selamat datang Admin!', 'success');
+          navigate('admin-dashboard', { admin: true });
+          return;
+        }
+
+        // Check user
+        const user = users.find(u => u.username === username && u.password === password);
+        if (user) {
+          currentUser = user;
+          isAdmin = false;
+          showToast(`Selamat datang, ${user.name}!`, 'success');
+          navigate('user-dashboard', { user });
+          return;
+        }
+
+        showToast('Username atau password salah!', 'error');
+      } catch (error) {
+        console.error('Login error:', error);
+        showToast('Terjadi kesalahan saat login', 'error');
+      } finally {
         btn.disabled = false;
         btn.textContent = 'Masuk';
-        return;
       }
-
-      // Check user
-      const user = users.find(u => u.username === username && u.password === password);
-      if (user) {
-        currentUser = user;
-        isAdmin = false;
-        showToast(`Selamat datang, ${user.name}!`, 'success');
-        navigate('user-dashboard', { user });
-        btn.disabled = false;
-        btn.textContent = 'Masuk';
-        return;
-      }
-
-      showToast('Username atau password salah!', 'error');
-      btn.disabled = false;
-      btn.textContent = 'Masuk';
     });
 
     document.getElementById('register-form').addEventListener('submit', async (e) => {
@@ -1593,5 +1595,5 @@
     
     window.addEventListener('DOMContentLoaded', initApp);
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c28f7cb17dbfe1c',t:'MTc2OTE4ODg5MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c28ffd4c319e77e',t:'MTc2OTE4OTIyMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
