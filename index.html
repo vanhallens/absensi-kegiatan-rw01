@@ -1,191 +1,608 @@
 <!doctype html>
-<html lang="id" class="h-full">
+<html lang="id">
  <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Absensi Kegiatan RW</title>
+  <title>Absensi Kegiatan RW - Sistem Manajemen Kehadiran</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="/_sdk/element_sdk.js"></script>
-  <script src="/_sdk/data_sdk.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
   <style>
     body {
       box-sizing: border-box;
+    }
+    
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+    
+    * {
       font-family: 'Plus Jakarta Sans', sans-serif;
     }
-    .gradient-bg {
-      background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 100%);
+    
+    .signature-pad {
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      cursor: crosshair;
+      background: white;
     }
-    .card-glass {
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-      transition: all 0.3s ease;
-    }
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(245, 158, 11, 0.3);
-    }
-    .btn-secondary {
-      background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 100%);
-      transition: all 0.3s ease;
-    }
-    .btn-secondary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(30, 58, 95, 0.3);
-    }
-    .input-field {
-      transition: all 0.3s ease;
-    }
-    .input-field:focus {
-      border-color: #f59e0b;
-      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
-    }
-    .nav-item {
-      transition: all 0.2s ease;
-    }
-    .nav-item:hover, .nav-item.active {
-      background: rgba(245, 158, 11, 0.2);
-      color: #f59e0b;
-    }
-    .table-row:hover {
-      background: rgba(245, 158, 11, 0.05);
-    }
-    .camera-container {
-      position: relative;
-      overflow: hidden;
-      border-radius: 1rem;
-    }
-    .camera-overlay {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0,0,0,0.5);
-    }
-    .face-guide {
-      width: 200px;
-      height: 250px;
-      border: 3px dashed #f59e0b;
-      border-radius: 50% 50% 45% 45%;
-    }
-    .status-badge {
-      padding: 0.25rem 0.75rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 600;
-    }
-    .status-aktif {
-      background: #d1fae5;
-      color: #059669;
-    }
-    .status-selesai {
-      background: #e5e7eb;
-      color: #6b7280;
-    }
-    .status-dibatalkan {
-      background: #fee2e2;
-      color: #dc2626;
-    }
+    
     .toast {
-      animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s;
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 16px 24px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+      z-index: 10000;
+      animation: slideIn 0.3s ease-out;
+      max-width: 400px;
     }
+    
     @keyframes slideIn {
-      from { transform: translateY(-100%); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
     }
+    
     @keyframes fadeOut {
-      from { opacity: 1; }
-      to { opacity: 0; }
+      to {
+        opacity: 0;
+        transform: translateX(400px);
+      }
     }
-    .modal-overlay {
-      background: rgba(0, 0, 0, 0.6);
+    
+    .toast.removing {
+      animation: fadeOut 0.3s ease-out forwards;
+    }
+    
+    .loading-spinner {
+      border: 3px solid #f3f4f6;
+      border-top: 3px solid #3b82f6;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .stat-card {
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+    }
+    
+    .btn-primary {
+      transition: all 0.2s;
+    }
+    
+    .btn-primary:hover {
+      transform: scale(1.02);
+      box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
+    }
+    
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+    
+    .hidden {
+      display: none !important;
+    }
+    
+    .modal-backdrop {
+      background: rgba(0, 0, 0, 0.5);
       backdrop-filter: blur(4px);
     }
-    .stat-card {
-      background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
-      border: 1px solid rgba(255,255,255,0.1);
+    
+    video {
+      border-radius: 8px;
+      max-width: 100%;
     }
-    .data-tab {
-      transition: all 0.2s ease;
+    
+    .activity-card {
+      transition: all 0.3s;
+      border: 2px solid transparent;
     }
-    .data-tab:hover {
-      background: rgba(245, 158, 11, 0.1);
-      color: #f59e0b;
-    }
-    .data-tab.active {
-      border-bottom-color: #f59e0b;
-      color: #f59e0b;
-      font-weight: 600;
-    }
-    .data-table {
-      font-size: 0.875rem;
-    }
-    .data-table th {
-      position: sticky;
-      top: 0;
-      background: #f9fafb;
-      z-index: 10;
-    }
-    .version-badge {
-      display: inline-block;
-      background: rgba(245, 158, 11, 0.1);
-      color: #f59e0b;
-      padding: 0.25rem 0.75rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      margin-top: 0.5rem;
+    
+    .activity-card:hover {
+      border-color: #3b82f6;
+      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
     }
   </style>
   <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+  <script src="/_sdk/element_sdk.js" type="text/javascript"></script>
  </head>
- <body class="h-full bg-gray-100">
-  <div id="app" class="h-full w-full overflow-auto">
-   <div id="toast-container" class="fixed top-4 right-4 z-50"></div>
-   <div id="main-content"></div>
-   <div id="modal-container"></div>
-  </div>
+ <body class="bg-gradient-to-br from-blue-50 via-white to-indigo-50 min-h-screen"><!-- ========================================
+       LOADING SCREEN
+       ======================================== -->
+  <div id="loading-screen" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
+   <div class="text-center">
+    <div class="loading-spinner mx-auto mb-4"></div>
+    <h2 class="text-2xl font-bold text-gray-800">Memuat Aplikasi...</h2>
+    <p class="text-gray-600 mt-2">Menghubungkan ke database</p>
+   </div>
+  </div><!-- ========================================
+       MAIN CONTAINER
+       ======================================== -->
+  <div id="app-container" class="hidden"><!-- ========================================
+         LOGIN PAGE
+         ======================================== -->
+   <div id="login-page" class="min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 md:p-12 max-w-md w-full">
+     <div class="text-center mb-8">
+      <div class="bg-blue-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4"><span class="text-4xl">📋</span>
+      </div>
+      <h1 class="text-3xl font-bold text-gray-800 mb-2">Absensi Kegiatan RW</h1>
+      <p class="text-gray-600">Sistem Manajemen Kehadiran Digital</p>
+     </div>
+     <form id="login-form" class="space-y-6">
+      <div><label for="login-username" class="block text-sm font-semibold text-gray-700 mb-2">Username</label> <input type="text" id="login-username" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="Masukkan username">
+      </div>
+      <div><label for="login-password" class="block text-sm font-semibold text-gray-700 mb-2">Password</label> <input type="password" id="login-password" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="Masukkan password">
+      </div><button type="submit" id="login-btn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition btn-primary"> Masuk </button>
+     </form>
+     <div class="mt-6 text-center">
+      <p class="text-gray-600">Belum punya akun?</p><button id="goto-register-btn" class="text-blue-600 font-semibold hover:underline mt-2"> Daftar di sini </button>
+     </div>
+     <div class="mt-8 pt-6 border-t border-gray-200 text-center text-sm text-gray-500">
+      <p>🔒 Login Admin: <strong>admin / admin123</strong></p>
+     </div>
+    </div>
+   </div><!-- ========================================
+         REGISTER PAGE
+         ======================================== -->
+   <div id="register-page" class="hidden min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 md:p-12 max-w-2xl w-full">
+     <div class="text-center mb-8">
+      <h1 class="text-3xl font-bold text-gray-800 mb-2">Daftar Warga Baru</h1>
+      <p class="text-gray-600">Lengkapi data untuk membuat akun</p>
+     </div>
+     <form id="register-form" class="space-y-6">
+      <div class="grid md:grid-cols-2 gap-6">
+       <div><label for="reg-name" class="block text-sm font-semibold text-gray-700 mb-2">Nama Lengkap</label> <input type="text" id="reg-name" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="Nama lengkap">
+       </div>
+       <div><label for="reg-username" class="block text-sm font-semibold text-gray-700 mb-2">Username</label> <input type="text" id="reg-username" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="Username">
+       </div>
+       <div><label for="reg-password" class="block text-sm font-semibold text-gray-700 mb-2">Password</label> <input type="password" id="reg-password" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="Password">
+       </div>
+       <div><label for="reg-rt" class="block text-sm font-semibold text-gray-700 mb-2">RT</label> <input type="text" id="reg-rt" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="Contoh: RT 01">
+       </div>
+       <div><label for="reg-position" class="block text-sm font-semibold text-gray-700 mb-2">Jabatan</label> <select id="reg-position" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"> <option value="">Pilih Jabatan</option> <option value="Ketua RT">Ketua RT</option> <option value="Wakil Ketua RT">Wakil Ketua RT</option> <option value="Sekretaris">Sekretaris</option> <option value="Bendahara">Bendahara</option> <option value="Seksi Keamanan">Seksi Keamanan</option> <option value="Warga">Warga</option> </select>
+       </div>
+       <div><label for="reg-phone" class="block text-sm font-semibold text-gray-700 mb-2">Nomor HP</label> <input type="tel" id="reg-phone" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="08xxxxxxxxxx">
+       </div>
+      </div><button type="submit" id="register-btn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition btn-primary"> Daftar Sekarang </button>
+     </form>
+     <div class="mt-6 text-center"><button id="goto-login-btn" class="text-blue-600 font-semibold hover:underline"> ← Kembali ke Login </button>
+     </div>
+    </div>
+   </div><!-- ========================================
+         USER DASHBOARD
+         ======================================== -->
+   <div id="user-dashboard" class="hidden min-h-screen"><!-- Header -->
+    <header class="bg-white shadow-md">
+     <div class="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
+      <div>
+       <h1 class="text-2xl font-bold text-gray-800">Dashboard Warga</h1>
+       <p class="text-gray-600" id="user-welcome">Selamat datang!</p>
+      </div><button id="user-logout-btn" class="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600 transition"> Logout </button>
+     </div>
+    </header><!-- Content -->
+    <main class="max-w-7xl mx-auto px-4 py-8">
+     <div class="mb-8">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6">Kegiatan Aktif</h2>
+      <div id="user-activities-list" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6"><!-- Activities will be populated here -->
+      </div>
+      <div id="user-no-activities" class="hidden text-center py-12 bg-white rounded-xl"><span class="text-6xl">📅</span>
+       <p class="text-xl text-gray-600 mt-4">Belum ada kegiatan aktif</p>
+      </div>
+     </div><!-- Riwayat Absensi -->
+     <div>
+      <h2 class="text-2xl font-bold text-gray-800 mb-6">Riwayat Absensi Saya</h2>
+      <div class="bg-white rounded-xl shadow-md overflow-hidden">
+       <div class="overflow-x-auto">
+        <table class="w-full">
+         <thead class="bg-gray-50">
+          <tr>
+           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Kegiatan</th>
+           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Waktu Absen</th>
+           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Status</th>
+          </tr>
+         </thead>
+         <tbody id="user-attendance-history"><!-- Attendance history will be populated here -->
+         </tbody>
+        </table>
+       </div>
+      </div>
+     </div>
+    </main>
+   </div><!-- ========================================
+         ADMIN DASHBOARD
+         ======================================== -->
+   <div id="admin-dashboard" class="hidden min-h-screen"><!-- Header -->
+    <header class="bg-white shadow-md">
+     <div class="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
+      <div>
+       <h1 class="text-2xl font-bold text-gray-800">Dashboard Admin</h1>
+       <p class="text-gray-600" id="admin-welcome">Selamat datang, Administrator!</p>
+      </div><button id="admin-logout-btn" class="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600 transition"> Logout </button>
+     </div>
+    </header><!-- Statistics -->
+    <main class="max-w-7xl mx-auto px-4 py-8">
+     <div class="grid md:grid-cols-4 gap-6 mb-8">
+      <div class="bg-white rounded-xl shadow-md p-6 stat-card">
+       <div class="flex items-center justify-between">
+        <div>
+         <p class="text-gray-600 text-sm font-semibold">Total Warga</p>
+         <p class="text-3xl font-bold text-blue-600" id="stat-users">0</p>
+        </div>
+        <div class="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center"><span class="text-2xl">👥</span>
+        </div>
+       </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-md p-6 stat-card">
+       <div class="flex items-center justify-between">
+        <div>
+         <p class="text-gray-600 text-sm font-semibold">Total Kegiatan</p>
+         <p class="text-3xl font-bold text-green-600" id="stat-activities">0</p>
+        </div>
+        <div class="bg-green-100 w-12 h-12 rounded-full flex items-center justify-center"><span class="text-2xl">📅</span>
+        </div>
+       </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-md p-6 stat-card">
+       <div class="flex items-center justify-between">
+        <div>
+         <p class="text-gray-600 text-sm font-semibold">Kegiatan Aktif</p>
+         <p class="text-3xl font-bold text-purple-600" id="stat-active">0</p>
+        </div>
+        <div class="bg-purple-100 w-12 h-12 rounded-full flex items-center justify-center"><span class="text-2xl">✅</span>
+        </div>
+       </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-md p-6 stat-card">
+       <div class="flex items-center justify-between">
+        <div>
+         <p class="text-gray-600 text-sm font-semibold">Total Absensi</p>
+         <p class="text-3xl font-bold text-orange-600" id="stat-attendances">0</p>
+        </div>
+        <div class="bg-orange-100 w-12 h-12 rounded-full flex items-center justify-center"><span class="text-2xl">📝</span>
+        </div>
+       </div>
+      </div>
+     </div><!-- Tabs -->
+     <div class="bg-white rounded-xl shadow-md mb-8">
+      <div class="flex border-b"><button class="tab-btn px-6 py-4 font-semibold text-blue-600 border-b-2 border-blue-600" data-tab="activities"> Kegiatan </button> <button class="tab-btn px-6 py-4 font-semibold text-gray-600 hover:text-blue-600" data-tab="users"> Warga Terdaftar </button> <button class="tab-btn px-6 py-4 font-semibold text-gray-600 hover:text-blue-600" data-tab="attendances"> Data Absensi </button>
+      </div>
+     </div><!-- Tab: Activities -->
+     <div id="tab-activities" class="tab-content">
+      <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+       <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-bold text-gray-800">Manajemen Kegiatan</h2><button id="add-activity-btn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition btn-primary"> + Tambah Kegiatan </button>
+       </div>
+       <div id="activities-list" class="space-y-4"><!-- Activities will be populated here -->
+       </div>
+      </div>
+     </div><!-- Tab: Users -->
+     <div id="tab-users" class="tab-content hidden">
+      <div class="bg-white rounded-xl shadow-md p-6">
+       <h2 class="text-xl font-bold text-gray-800 mb-6">Daftar Warga Terdaftar</h2>
+       <div class="overflow-x-auto">
+        <table class="w-full">
+         <thead class="bg-gray-50">
+          <tr>
+           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Nama</th>
+           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Username</th>
+           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">RT</th>
+           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Jabatan</th>
+           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Telepon</th>
+          </tr>
+         </thead>
+         <tbody id="users-table-body"><!-- Users will be populated here -->
+         </tbody>
+        </table>
+       </div>
+      </div>
+     </div><!-- Tab: Attendances -->
+     <div id="tab-attendances" class="tab-content hidden">
+      <div class="bg-white rounded-xl shadow-md p-6">
+       <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-bold text-gray-800">Data Absensi</h2>
+        <div class="flex gap-3"><button id="export-csv-btn" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition"> 📥 Export CSV </button> <button id="print-attendance-btn" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition"> 🖨️ Cetak </button>
+        </div>
+       </div><!-- Filter -->
+       <div class="mb-6"><label for="filter-activity" class="block text-sm font-semibold text-gray-700 mb-2">Filter Kegiatan:</label> <select id="filter-activity" class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"> <option value="">Semua Kegiatan</option> </select>
+       </div>
+       <div class="overflow-x-auto">
+        <table class="w-full">
+         <thead class="bg-gray-50">
+          <tr>
+           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Nama</th>
+           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Kegiatan</th>
+           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Waktu</th>
+           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Foto</th>
+           <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Tanda Tangan</th>
+          </tr>
+         </thead>
+         <tbody id="attendances-table-body"><!-- Attendances will be populated here -->
+         </tbody>
+        </table>
+       </div>
+      </div>
+     </div>
+    </main>
+   </div>
+  </div><!-- ========================================
+       MODAL: ADD/EDIT ACTIVITY
+       ======================================== -->
+  <div id="activity-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+   <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <h2 class="text-2xl font-bold text-gray-800 mb-6" id="activity-modal-title">Tambah Kegiatan Baru</h2>
+    <form id="activity-form" class="space-y-6"><input type="hidden" id="activity-id">
+     <div><label for="activity-name" class="block text-sm font-semibold text-gray-700 mb-2">Nama Kegiatan</label> <input type="text" id="activity-name" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="Contoh: Kerja Bakti Bulanan">
+     </div>
+     <div class="grid md:grid-cols-2 gap-6">
+      <div><label for="activity-date" class="block text-sm font-semibold text-gray-700 mb-2">Tanggal</label> <input type="date" id="activity-date" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition">
+      </div>
+      <div><label for="activity-time" class="block text-sm font-semibold text-gray-700 mb-2">Waktu</label> <input type="time" id="activity-time" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition">
+      </div>
+     </div>
+     <div><label for="activity-location" class="block text-sm font-semibold text-gray-700 mb-2">Lokasi</label> <input type="text" id="activity-location" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition" placeholder="Contoh: Balai RW 05">
+     </div>
+     <div><label for="activity-status" class="block text-sm font-semibold text-gray-700 mb-2">Status</label> <select id="activity-status" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"> <option value="aktif">Aktif</option> <option value="selesai">Selesai</option> <option value="dibatalkan">Dibatalkan</option> </select>
+     </div>
+     <div class="flex gap-4"><button type="submit" id="save-activity-btn" class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition btn-primary"> Simpan </button> <button type="button" id="cancel-activity-btn" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition"> Batal </button>
+     </div>
+    </form>
+   </div>
+  </div><!-- ========================================
+       MODAL: ATTENDANCE
+       ======================================== -->
+  <div id="attendance-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+   <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <h2 class="text-2xl font-bold text-gray-800 mb-2">Absensi Kegiatan</h2>
+    <p class="text-gray-600 mb-6" id="attendance-activity-name">Nama Kegiatan</p><!-- Camera Section -->
+    <div class="mb-6"><label class="block text-sm font-semibold text-gray-700 mb-3">Ambil Foto</label>
+     <div class="bg-gray-100 rounded-lg p-4">
+      <video id="attendance-video" class="w-full mb-3 hidden" autoplay playsinline></video>
+      <canvas id="attendance-canvas" class="hidden"></canvas>
+      <div id="attendance-preview" class="hidden mb-3"><img id="attendance-preview-img" class="w-full rounded-lg">
+      </div>
+      <div class="flex gap-3"><button id="start-camera-btn" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"> 📷 Buka Kamera </button> <button id="capture-photo-btn" class="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition hidden"> 📸 Ambil Foto </button> <button id="retake-photo-btn" class="flex-1 bg-orange-600 text-white py-2 rounded-lg hover:bg-orange-700 transition hidden"> 🔄 Foto Ulang </button>
+      </div>
+     </div>
+    </div><!-- Signature Section -->
+    <div id="signature-section" class="mb-6 hidden"><label class="block text-sm font-semibold text-gray-700 mb-3">Tanda Tangan Digital</label>
+     <canvas id="signature-pad" class="signature-pad w-full" width="600" height="200"></canvas><button id="clear-signature-btn" class="mt-3 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition"> 🗑️ Hapus Tanda Tangan </button>
+    </div><!-- Action Buttons -->
+    <div id="submit-btn" class="flex gap-4 hidden"><button id="submit-attendance-btn" class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition btn-primary"> ✅ Submit Absensi </button> <button id="cancel-attendance-btn" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition"> Batal </button>
+    </div>
+   </div>
+  </div><!-- ========================================
+       JAVASCRIPT
+       ======================================== -->
   <script>
-    // Configuration & State
-    const APP_VERSION = 'v2.2.0';
+    // ========================================
+    // GOOGLE SHEETS API CONFIGURATION
+    // ========================================
     
-    const defaultConfig = {
-      app_title: 'Absensi Kegiatan RW',
-      rw_number: '05',
-      kelurahan: 'Sukamaju',
-      primary_color: '#1e3a5f',
-      secondary_color: '#f59e0b',
-      background_color: '#f3f4f6',
-      text_color: '#1f2937',
-      surface_color: '#ffffff'
-    };
+    // ⚠️ GANTI URL INI DENGAN WEB APP URL ANDA!
+    //const GOOGLE_SHEETS_API_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';
 
-    let config = { ...defaultConfig };
-    let currentView = 'home';
-    let currentUser = null;
-    let isAdmin = false;
+
+      const GOOGLE_SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbyQE284RBROqwH4HXQy025zuc7vPuRKRpfaRAV7duAClo4aOENGSumUE5O21tNwH-kNBQ/exec';
+
+    // ========================================
+    // GLOBAL STATE
+    // ========================================
     let users = [];
     let admins = [];
     let activities = [];
     let attendances = [];
-    let videoStream = null;
-    let editingActivity = null;
-    let currentDataTab = 'users';
-    let loginMode = 'warga';
-    let selectedActivity = null;
+    let currentUser = null;
+    let isAdmin = false;
+    let mediaStream = null;
     let capturedAttendancePhoto = null;
-    let capturedSignature = null;
+    let signaturePad = null;
     let isDrawing = false;
-    let signatureCanvas = null;
-    let signatureCtx = null;
+    let currentActivityForAttendance = null;
 
-    // Create Default Admin
+    // ========================================
+    // API FUNCTIONS
+    // ========================================
+
+    async function loadAllDataFromSheets() {
+      try {
+        showToast('Memuat data...', 'info');
+        const response = await fetch(GOOGLE_SHEETS_API_URL + '?action=getAllData');
+        const data = await response.json();
+        
+        if (data.error) {
+          console.error('Error loading data:', data.error);
+          showToast('Gagal memuat data: ' + data.error, 'error');
+          return false;
+        }
+        
+        // Map data with __backendId for compatibility
+        users = (data.users || []).map(u => ({ ...u, __backendId: u.id ? u.id.toString() : '' }));
+        admins = (data.admins || []).map(a => ({ ...a, __backendId: a.id ? a.id.toString() : '' }));
+        activities = (data.activities || []).map(a => ({ ...a, __backendId: a.id ? a.id.toString() : '' }));
+        attendances = (data.attendances || []).map(a => ({ ...a, __backendId: a.id ? a.id.toString() : '' }));
+        
+        console.log('Data loaded:', { users: users.length, admins: admins.length, activities: activities.length, attendances: attendances.length });
+        
+        renderCurrentView();
+        return true;
+      } catch (error) {
+        console.error('Fetch error:', error);
+        showToast('Koneksi ke database gagal: ' + error.message, 'error');
+        return false;
+      }
+    }
+
+    async function createData(data) {
+      try {
+        let actionType = '';
+        if (data.type === 'user') actionType = 'createUser';
+        else if (data.type === 'admin') actionType = 'createAdmin';
+        else if (data.type === 'activity') actionType = 'createActivity';
+        else if (data.type === 'attendance') actionType = 'createAttendance';
+        
+        // Remove type field as it's not in schema
+        const cleanData = { ...data };
+        delete cleanData.type;
+        delete cleanData.__backendId;
+        
+        const response = await fetch(GOOGLE_SHEETS_API_URL + '?action=' + actionType, {
+          method: 'POST',
+          body: JSON.stringify(cleanData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          await loadAllDataFromSheets();
+          return { isOk: true };
+        } else {
+          return { isOk: false, error: result.error };
+        }
+      } catch (error) {
+        console.error('Create error:', error);
+        return { isOk: false, error: error.toString() };
+      }
+    }
+
+    async function updateData(data) {
+      try {
+        let actionType = '';
+        let cleanData = { ...data };
+        
+        // Determine action type based on data properties
+        if (cleanData.name && cleanData.username && cleanData.rt) {
+          actionType = 'updateUser';
+        } else if (cleanData.full_name && cleanData.role) {
+          actionType = 'updateAdmin';
+        } else if (cleanData.activity_name && cleanData.activity_date) {
+          actionType = 'updateActivity';
+        } else if (cleanData.user_username && cleanData.attendance_time) {
+          actionType = 'updateAttendance';
+        }
+        
+        // Convert __backendId to id
+        cleanData.id = parseInt(cleanData.__backendId);
+        delete cleanData.__backendId;
+        delete cleanData.type;
+        
+        const response = await fetch(GOOGLE_SHEETS_API_URL + '?action=' + actionType, {
+          method: 'POST',
+          body: JSON.stringify(cleanData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          await loadAllDataFromSheets();
+          return { isOk: true };
+        } else {
+          return { isOk: false, error: result.error };
+        }
+      } catch (error) {
+        console.error('Update error:', error);
+        return { isOk: false, error: error.toString() };
+      }
+    }
+
+    async function deleteData(data) {
+      try {
+        let actionType = '';
+        if (data.name && data.username) actionType = 'deleteUser';
+        else if (data.full_name && data.role) actionType = 'deleteAdmin';
+        else if (data.activity_name) actionType = 'deleteActivity';
+        else if (data.user_username) actionType = 'deleteAttendance';
+        
+        const response = await fetch(GOOGLE_SHEETS_API_URL + '?action=' + actionType, {
+          method: 'POST',
+          body: JSON.stringify({ id: parseInt(data.__backendId) })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          await loadAllDataFromSheets();
+          return { isOk: true };
+        } else {
+          return { isOk: false, error: result.error };
+        }
+      } catch (error) {
+        console.error('Delete error:', error);
+        return { isOk: false, error: error.toString() };
+      }
+    }
+
+    // ========================================
+    // INITIALIZE APP
+    // ========================================
+
+    async function initApp() {
+      console.log('Initializing app...');
+      
+      // Check API URL
+      if (GOOGLE_SHEETS_API_URL.includes('YOUR_DEPLOYMENT_ID')) {
+        document.getElementById('loading-screen').innerHTML = `
+          <div class="text-center">
+            <span class="text-6xl mb-4">⚠️</span>
+            <h2 class="text-2xl font-bold text-red-600 mb-4">Konfigurasi Belum Lengkap</h2>
+            <p class="text-gray-700 max-w-md">
+              Silakan ganti <code class="bg-gray-200 px-2 py-1 rounded">GOOGLE_SHEETS_API_URL</code> 
+              dengan URL Web App Anda di baris 724 file HTML ini.
+            </p>
+          </div>
+        `;
+        return;
+      }
+      
+      // Load data from Google Sheets
+      const success = await loadAllDataFromSheets();
+      
+      if (success) {
+        // Hide loading screen and show app
+        document.getElementById('loading-screen').classList.add('hidden');
+        document.getElementById('app-container').classList.remove('hidden');
+        
+        // Check if default admin exists
+        setTimeout(async () => {
+          if (admins.length === 0) {
+            await createDefaultAdmin();
+          }
+        }, 500);
+        
+        showToast('Aplikasi siap digunakan!', 'success');
+      } else {
+        document.getElementById('loading-screen').innerHTML = `
+          <div class="text-center">
+            <span class="text-6xl mb-4">❌</span>
+            <h2 class="text-2xl font-bold text-red-600 mb-4">Gagal Memuat Data</h2>
+            <p class="text-gray-700 mb-4">Periksa koneksi internet dan URL API Anda.</p>
+            <button onclick="location.reload()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
+              Coba Lagi
+            </button>
+          </div>
+        `;
+      }
+    }
+
     async function createDefaultAdmin() {
-      const result = await window.dataSdk.create({
+      const result = await createData({
         type: 'admin',
         username: 'admin',
         password: 'admin123',
@@ -196,256 +613,36 @@
       });
       
       if (result.isOk) {
-        console.log('Admin default berhasil dibuat');
+        console.log('Default admin created');
       }
     }
 
-    // Initialize Application
-    async function initApp() {
-      if (window.elementSdk) {
-        await window.elementSdk.init({
-          defaultConfig: defaultConfig,
-          onConfigChange: async (newConfig) => {
-            config = { ...defaultConfig, ...newConfig };
-            renderCurrentView();
-          },
-          mapToCapabilities: (cfg) => ({
-            recolorables: [
-              { get: () => cfg.background_color || defaultConfig.background_color, set: (v) => { cfg.background_color = v; window.elementSdk.setConfig({ background_color: v }); }},
-              { get: () => cfg.surface_color || defaultConfig.surface_color, set: (v) => { cfg.surface_color = v; window.elementSdk.setConfig({ surface_color: v }); }},
-              { get: () => cfg.text_color || defaultConfig.text_color, set: (v) => { cfg.text_color = v; window.elementSdk.setConfig({ text_color: v }); }},
-              { get: () => cfg.primary_color || defaultConfig.primary_color, set: (v) => { cfg.primary_color = v; window.elementSdk.setConfig({ primary_color: v }); }},
-              { get: () => cfg.secondary_color || defaultConfig.secondary_color, set: (v) => { cfg.secondary_color = v; window.elementSdk.setConfig({ secondary_color: v }); }}
-            ],
-            borderables: [],
-            fontEditable: undefined,
-            fontSizeable: undefined
-          }),
-          mapToEditPanelValues: (cfg) => new Map([
-            ['app_title', cfg.app_title || defaultConfig.app_title],
-            ['rw_number', cfg.rw_number || defaultConfig.rw_number],
-            ['kelurahan', cfg.kelurahan || defaultConfig.kelurahan]
-          ])
-        });
-        config = { ...defaultConfig, ...window.elementSdk.config };
-      }
+    // ========================================
+    // NAVIGATION
+    // ========================================
 
-      if (window.dataSdk) {
-        const result = await window.dataSdk.init({
-          onDataChanged(data) {
-            users = data.filter(d => d.type === 'user');
-            admins = data.filter(d => d.type === 'admin');
-            activities = data.filter(d => d.type === 'activity');
-            attendances = data.filter(d => d.type === 'attendance');
-            
-            renderCurrentView();
-          }
-        });
-        if (!result.isOk) {
-          showToast('Gagal menginisialisasi database', 'error');
-        } else {
-          setTimeout(async () => {
-            if (admins.length === 0) {
-              await createDefaultAdmin();
-            }
-          }, 500);
-        }
-      }
-
-      renderCurrentView();
-    }
-
-    // Toast Notification
-    function showToast(message, type = 'success') {
-      const container = document.getElementById('toast-container');
-      const toast = document.createElement('div');
-      const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-yellow-500';
-      toast.className = `toast ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg mb-2`;
-      toast.textContent = message;
-      container.appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
-    }
-
-    // Navigation
-    function navigate(view, data = null) {
-      stopCamera();
-      currentView = view;
-      if (data) {
-        if (data.user) currentUser = data.user;
-        if (data.admin !== undefined) isAdmin = data.admin;
-        if (data.activity) editingActivity = data.activity;
-      }
-      renderCurrentView();
-    }
-
-    function logout() {
-      currentUser = null;
-      isAdmin = false;
-      navigate('home');
-    }
-
-    // Render Functions
-    function renderCurrentView() {
-      const content = document.getElementById('main-content');
-      const bgColor = config.background_color || defaultConfig.background_color;
+    function navigate(page, data = {}) {
+      // Hide all pages
+      document.querySelectorAll('#login-page, #register-page, #user-dashboard, #admin-dashboard').forEach(el => {
+        el.classList.add('hidden');
+      });
       
-      switch(currentView) {
-        case 'home':
-          content.innerHTML = renderHome();
-          break;
-        case 'login':
-          content.innerHTML = renderLogin();
-          break;
-        case 'register':
-          content.innerHTML = renderRegister();
-          break;
-        case 'admin-dashboard':
-          content.innerHTML = renderAdminDashboard();
-          setTimeout(renderDataTable, 100);
-          break;
-        case 'user-dashboard':
-          content.innerHTML = renderUserDashboard();
-          break;
-        case 'attendance':
-          content.innerHTML = renderAttendance();
-          setTimeout(() => {
-            startCamera();
-            initSignatureCanvas();
-          }, 100);
-          break;
-        case 'activity-form':
-          content.innerHTML = renderActivityForm();
-          break;
-        default:
-          content.innerHTML = renderHome();
-      }
+      // Show requested page
+      document.getElementById(page).classList.remove('hidden');
       
-      document.body.style.backgroundColor = bgColor;
+      // Render based on page
+      if (page === 'user-dashboard') {
+        renderUserDashboard(data.user);
+      } else if (page === 'admin-dashboard') {
+        renderAdminDashboard();
+      }
     }
 
-    function renderHome() {
-      const primaryColor = config.primary_color || defaultConfig.primary_color;
-      const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
-      const textColor = config.text_color || defaultConfig.text_color;
-      const surfaceColor = config.surface_color || defaultConfig.surface_color;
-      const appTitle = config.app_title || defaultConfig.app_title;
-      const rwNumber = config.rw_number || defaultConfig.rw_number;
-      const kelurahan = config.kelurahan || defaultConfig.kelurahan;
+    // ========================================
+    // LOGIN & REGISTER
+    // ========================================
 
-      const activeActivities = activities.filter(a => a.activity_status === 'aktif');
-
-      return `
-        <div class="min-h-full gradient-bg" style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d1b2a 100%);">
-          <div class="container mx-auto px-4 py-8">
-            <div class="text-center mb-12">
-              <div class="inline-flex items-center justify-center w-20 h-20 rounded-full mb-4" style="background: ${secondaryColor};">
-                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-                </svg>
-              </div>
-              <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">${appTitle}</h1>
-              <p class="text-gray-300 text-lg">RW ${rwNumber} - Kelurahan ${kelurahan}</p>
-              <span class="version-badge">${APP_VERSION}</span>
-            </div>
-
-            <div class="max-w-md mx-auto mb-12">
-              <div class="card-glass rounded-2xl p-6 shadow-xl" style="background: ${surfaceColor};">
-                <div class="text-center">
-                  <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style="background: linear-gradient(135deg, ${secondaryColor} 0%, #d97706 100%);">
-                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
-                    </svg>
-                  </div>
-                  <h2 class="text-xl font-bold mb-2" style="color: ${textColor};">Portal Masuk</h2>
-                  <p class="text-gray-500 mb-4">Masuk sebagai Warga atau Admin</p>
-                  <button onclick="navigate('login')" class="w-full btn-primary text-white font-semibold py-3 px-6 rounded-xl mb-3">
-                    Masuk ke Portal
-                  </button>
-                  <p class="text-sm text-gray-500">
-                    Belum terdaftar? 
-                    <button onclick="navigate('register')" class="font-semibold hover:underline" style="color: ${secondaryColor};">Daftar di sini</button>
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            ${activeActivities.length > 0 ? `
-              <div class="max-w-2xl mx-auto">
-                <h3 class="text-white text-xl font-semibold mb-4 text-center">📅 Kegiatan Aktif</h3>
-                <div class="space-y-3">
-                  ${activeActivities.map(act => `
-                    <div class="card-glass rounded-xl p-4 flex items-center justify-between" style="background: ${surfaceColor};">
-                      <div>
-                        <h4 class="font-semibold" style="color: ${textColor};">${act.activity_name}</h4>
-                        <p class="text-sm text-gray-500">📅 ${formatDate(act.activity_date)} ${act.activity_time ? `• ⏰ ${act.activity_time}` : ''}</p>
-                        <p class="text-sm text-gray-500">📍 ${act.activity_location}</p>
-                      </div>
-                      <span class="status-badge status-aktif">Aktif</span>
-                    </div>
-                  `).join('')}
-                </div>
-              </div>
-            ` : ''}
-          </div>
-        </div>
-      `;
-    }
-
-    function renderLogin() {
-      const primaryColor = config.primary_color || defaultConfig.primary_color;
-      const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
-      const textColor = config.text_color || defaultConfig.text_color;
-      const surfaceColor = config.surface_color || defaultConfig.surface_color;
-
-      return `
-        <div class="min-h-full gradient-bg flex items-center justify-center p-4" style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d1b2a 100%);">
-          <div class="card-glass rounded-2xl p-8 w-full max-w-md shadow-xl" style="background: ${surfaceColor};">
-            <button onclick="navigate('home')" class="mb-6 flex items-center text-gray-500 hover:text-gray-700">
-              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-              </svg>
-              Kembali
-            </button>
-
-            <div class="text-center mb-6">
-              <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style="background: linear-gradient(135deg, ${secondaryColor} 0%, #d97706 100%);">
-                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
-                </svg>
-              </div>
-              <h2 class="text-2xl font-bold" style="color: ${textColor};">Masuk Portal</h2>
-              <p class="text-gray-500">Masukkan username dan password Anda</p>
-            </div>
-
-            <form id="login-form" onsubmit="handleAutoLogin(event)">
-              <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="login-username">Username</label>
-                <input type="text" id="login-username" name="username" required
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  placeholder="Masukkan username">
-              </div>
-              <div class="mb-6">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};" for="login-password">Password</label>
-                <input type="password" id="login-password" name="password" required
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  placeholder="Masukkan password">
-              </div>
-
-              <button type="submit" id="login-btn" class="w-full btn-primary text-white font-semibold py-3 px-6 rounded-xl">
-                Masuk
-              </button>
-            </form>
-
-            <p class="mt-6 text-center text-sm text-gray-500">
-              Belum terdaftar? 
-              <button onclick="navigate('register')" class="font-semibold hover:underline" style="color: ${secondaryColor};">Daftar di sini</button>
-            </p>
-          </div>
-        </div>
-      `;
-    }
-
-    async function handleAutoLogin(e) {
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = document.getElementById('login-btn');
       const username = document.getElementById('login-username').value.trim();
@@ -454,1339 +651,507 @@
       btn.disabled = true;
       btn.textContent = 'Memproses...';
 
+      // Check admin
       const admin = admins.find(a => a.username === username && a.password === password);
       if (admin) {
         isAdmin = true;
         currentUser = admin;
-        showToast(`Selamat datang Admin!`);
+        showToast('Selamat datang Admin!', 'success');
         navigate('admin-dashboard', { admin: true });
+        btn.disabled = false;
+        btn.textContent = 'Masuk';
         return;
       }
 
+      // Check user
       const user = users.find(u => u.username === username && u.password === password);
       if (user) {
         currentUser = user;
-        showToast(`Selamat datang, ${user.name}!`);
+        isAdmin = false;
+        showToast(`Selamat datang, ${user.name}!`, 'success');
         navigate('user-dashboard', { user });
+        btn.disabled = false;
+        btn.textContent = 'Masuk';
         return;
       }
 
       showToast('Username atau password salah!', 'error');
       btn.disabled = false;
       btn.textContent = 'Masuk';
-    }
+    });
 
-    function renderRegister() {
-      const primaryColor = config.primary_color || defaultConfig.primary_color;
-      const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
-      const textColor = config.text_color || defaultConfig.text_color;
-      const surfaceColor = config.surface_color || defaultConfig.surface_color;
-
-      return `
-        <div class="min-h-full gradient-bg flex items-center justify-center p-4" style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d1b2a 100%);">
-          <div class="card-glass rounded-2xl p-8 w-full max-w-md shadow-xl" style="background: ${surfaceColor};">
-            <button onclick="navigate('home')" class="mb-6 flex items-center text-gray-500 hover:text-gray-700">
-              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-              </svg>
-              Kembali
-            </button>
-            
-            <div class="text-center mb-6">
-              <h2 class="text-2xl font-bold" style="color: ${textColor};">Pendaftaran Warga</h2>
-              <p class="text-gray-500">Lengkapi data diri Anda</p>
-            </div>
-
-            <form id="register-form" onsubmit="handleRegister(event)">
-              <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Nama Lengkap</label>
-                <input type="text" id="reg-name" required
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  placeholder="Masukkan nama lengkap">
-              </div>
-              <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Username</label>
-                <input type="text" id="reg-username" required minlength="4"
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  placeholder="Masukkan username">
-              </div>
-              <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Password</label>
-                <input type="password" id="reg-password" required minlength="6"
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  placeholder="Masukkan password">
-              </div>
-              <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Konfirmasi Password</label>
-                <input type="password" id="reg-password-confirm" required minlength="6"
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  placeholder="Masukkan ulang password">
-              </div>
-              <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">RT</label>
-                <input type="text" id="reg-rt" required
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  placeholder="Contoh: RT 01">
-              </div>
-              <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Jabatan / Satuan</label>
-                <input type="text" id="reg-position" required
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  placeholder="Contoh: Ketua RT, Sekretaris, Warga">
-              </div>
-              <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">No Telepon</label>
-                <input type="tel" id="reg-phone" required
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none"
-                  placeholder="Contoh: 08123456789">
-              </div>
-              <input type="hidden" id="reg-photo" value="">
-              <button type="submit" id="register-btn" class="w-full btn-primary text-white font-semibold py-3 px-6 rounded-xl">
-                Daftar Sekarang
-              </button>
-            </form>
-          </div>
-        </div>
-      `;
-    }
-
-    async function handleRegister(e) {
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = document.getElementById('register-btn');
-      const name = document.getElementById('reg-name').value.trim();
+      
+      btn.disabled = true;
+      btn.textContent = 'Mendaftar...';
+
       const username = document.getElementById('reg-username').value.trim();
-      const password = document.getElementById('reg-password').value;
-      const passwordConfirm = document.getElementById('reg-password-confirm').value;
-      const rt = document.getElementById('reg-rt').value.trim();
-      const position = document.getElementById('reg-position').value.trim();
-      const phone = document.getElementById('reg-phone').value.trim();
-
-      if (password !== passwordConfirm) {
-        showToast('Password dan konfirmasi password tidak cocok!', 'error');
-        return;
-      }
-
+      
+      // Check if username exists
       if (users.find(u => u.username === username)) {
         showToast('Username sudah digunakan!', 'error');
-        return;
-      }
-
-      if (users.length >= 999) {
-        showToast('Batas maksimum pendaftaran tercapai', 'error');
-        return;
-      }
-
-      btn.disabled = true;
-      btn.textContent = 'Mendaftarkan...';
-
-      const result = await window.dataSdk.create({
-        type: 'user',
-        name,
-        username,
-        password,
-        rt,
-        position,
-        phone,
-        photo: '',
-        registered_at: new Date().toISOString()
-      });
-
-      if (result.isOk) {
-        showToast('Pendaftaran berhasil! Silakan masuk.');
-        navigate('login');
-      } else {
-        showToast('Gagal mendaftar. Silakan coba lagi.', 'error');
         btn.disabled = false;
         btn.textContent = 'Daftar Sekarang';
-      }
-    }
-
-    function renderAdminDashboard() {
-      const primaryColor = config.primary_color || defaultConfig.primary_color;
-      const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
-      const textColor = config.text_color || defaultConfig.text_color;
-      const surfaceColor = config.surface_color || defaultConfig.surface_color;
-      const bgColor = config.background_color || defaultConfig.background_color;
-
-      return `
-        <div class="min-h-full" style="background: ${bgColor};">
-          <div class="gradient-bg text-white px-4 py-6" style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d1b2a 100%);">
-            <div class="container mx-auto flex justify-between items-center">
-              <div>
-                <h1 class="text-xl font-bold">Dashboard Admin</h1>
-                <span class="version-badge">${APP_VERSION}</span>
-              </div>
-              <button onclick="logout()" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition">Keluar</button>
-            </div>
-          </div>
-
-          <div class="container mx-auto px-4 py-6">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <div class="rounded-xl p-4 text-white" style="background: ${primaryColor};">
-                <p class="text-sm opacity-80">Total Warga</p>
-                <p class="text-3xl font-bold">${users.length}</p>
-              </div>
-              <div class="rounded-xl p-4 text-white" style="background: ${secondaryColor};">
-                <p class="text-sm opacity-80">Total Kegiatan</p>
-                <p class="text-3xl font-bold">${activities.length}</p>
-              </div>
-              <div class="rounded-xl p-4" style="background: ${surfaceColor};">
-                <p class="text-sm opacity-60">Kegiatan Aktif</p>
-                <p class="text-3xl font-bold text-green-600">${activities.filter(a => a.activity_status === 'aktif').length}</p>
-              </div>
-              <div class="rounded-xl p-4" style="background: ${surfaceColor};">
-                <p class="text-sm opacity-60">Total Absensi</p>
-                <p class="text-3xl font-bold">${attendances.length}</p>
-              </div>
-            </div>
-
-            <div class="rounded-2xl shadow-lg p-6 mb-8" style="background: ${surfaceColor};">
-              <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-bold">📅 Kelola Kegiatan</h2>
-                <button onclick="navigate('activity-form')" class="btn-primary text-white font-medium py-2 px-4 rounded-lg">+ Tambah</button>
-              </div>
-              ${activities.length === 0 ? '<p class="text-gray-400 text-center py-8">Belum ada kegiatan</p>' : `
-                <div class="space-y-3">
-                  ${activities.map(act => {
-                    const activityAttendances = attendances.filter(a => a.activity_name === act.activity_name);
-                    return `
-                    <div class="border rounded-xl p-4">
-                      <div class="flex justify-between items-start mb-3">
-                        <div class="flex-1">
-                          <h3 class="font-semibold">${act.activity_name}</h3>
-                          <p class="text-sm text-gray-500">📅 ${formatDate(act.activity_date)} ${act.activity_time ? `• ⏰ ${act.activity_time}` : ''}</p>
-                          <p class="text-sm text-gray-500">📍 ${act.activity_location}</p>
-                          <p class="text-sm text-gray-500 mt-1">👥 ${activityAttendances.length} peserta hadir</p>
-                        </div>
-                        <div class="flex gap-2 items-start">
-                          <span class="status-badge status-${act.activity_status}">${act.activity_status}</span>
-                        </div>
-                      </div>
-                      <div class="flex gap-2 flex-wrap">
-                        <button onclick="editActivity('${act.__backendId}')" class="text-blue-500 px-3 py-1 hover:bg-blue-50 rounded text-sm">✏️ Edit</button>
-                        <button onclick="viewActivityAttendance('${act.activity_name}')" class="text-green-600 px-3 py-1 hover:bg-green-50 rounded text-sm">👥 Lihat Absensi</button>
-                        <button onclick="printAttendance('${act.activity_name}')" class="text-purple-600 px-3 py-1 hover:bg-purple-50 rounded text-sm">🖨️ Cetak Absensi</button>
-                        <button onclick="deleteActivityConfirm('${act.__backendId}')" class="text-red-500 px-3 py-1 hover:bg-red-50 rounded text-sm">🗑️ Hapus</button>
-                      </div>
-                    </div>
-                  `;
-                  }).join('')}
-                </div>
-              `}
-            </div>
-
-            <div class="rounded-2xl shadow-lg p-6 mb-8" style="background: ${surfaceColor};">
-              <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-bold">💾 Export & Backup Data</h2>
-              </div>
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <button onclick="exportUsers()" class="flex flex-col items-center justify-center p-4 rounded-xl border-2 hover:shadow-lg transition" style="border-color: ${secondaryColor};">
-                  <svg class="w-12 h-12 mb-2" style="color: ${secondaryColor};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-                  </svg>
-                  <span class="font-semibold text-sm" style="color: ${textColor};">Export Warga</span>
-                  <span class="text-xs text-gray-500 text-center mt-1">Download daftar warga (CSV)</span>
-                </button>
-                
-                <button onclick="downloadDatabase()" class="flex flex-col items-center justify-center p-4 rounded-xl border-2 hover:shadow-lg transition" style="border-color: ${primaryColor};">
-                  <svg class="w-12 h-12 mb-2" style="color: ${primaryColor};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
-                  </svg>
-                  <span class="font-semibold text-sm" style="color: ${textColor};">Download Database</span>
-                  <span class="text-xs text-gray-500 text-center mt-1">Backup lengkap semua data (JSON)</span>
-                </button>
-
-                <button onclick="exportActivitiesReport()" class="flex flex-col items-center justify-center p-4 rounded-xl border-2 hover:shadow-lg transition border-green-500">
-                  <svg class="w-12 h-12 mb-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                  </svg>
-                  <span class="font-semibold text-sm" style="color: ${textColor};">Laporan Kegiatan</span>
-                  <span class="text-xs text-gray-500 text-center mt-1">Export laporan kegiatan (CSV)</span>
-                </button>
-              </div>
-
-              <div class="border-t pt-6">
-                <h3 class="text-lg font-bold mb-4">👥 Daftar Warga Terdaftar</h3>
-              ${users.length === 0 ? '<p class="text-gray-400 text-center py-8">Belum ada warga terdaftar</p>' : `
-                <div class="overflow-x-auto">
-                  <table class="w-full text-sm">
-                    <thead>
-                      <tr class="border-b-2 border-gray-200">
-                        <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">No</th>
-                        <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">Nama</th>
-                        <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">Username</th>
-                        <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">RT</th>
-                        <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">Jabatan</th>
-                        <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">No. Telepon</th>
-                        <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">Tgl Daftar</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${users.map((user, index) => `
-                        <tr class="border-b border-gray-100 hover:bg-gray-50">
-                          <td class="py-3 px-2">${index + 1}</td>
-                          <td class="py-3 px-2 font-medium" style="color: ${textColor};">${user.name}</td>
-                          <td class="py-3 px-2 text-gray-600">${user.username}</td>
-                          <td class="py-3 px-2 text-gray-600">${user.rt}</td>
-                          <td class="py-3 px-2 text-gray-600">${user.position}</td>
-                          <td class="py-3 px-2 text-gray-600">${user.phone}</td>
-                          <td class="py-3 px-2 text-gray-500 text-xs">${formatDate(user.registered_at)}</td>
-                        </tr>
-                      `).join('')}
-                    </tbody>
-                  </table>
-                </div>
-              `}
-            </div>
-
-            <div class="rounded-2xl shadow-lg p-6" style="background: ${surfaceColor};">
-              <h2 class="text-xl font-bold mb-6">📜 History Kegiatan</h2>
-              ${activities.length === 0 ? '<p class="text-gray-400 text-center py-8">Belum ada history kegiatan</p>' : `
-                <div class="space-y-3">
-                  ${activities.sort((a, b) => new Date(b.activity_date) - new Date(a.activity_date)).map(act => {
-                    const activityAttendances = attendances.filter(a => a.activity_name === act.activity_name);
-                    return `
-                    <div class="border rounded-xl p-4">
-                      <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                          <div class="flex items-center gap-2 mb-2">
-                            <h3 class="font-semibold">${act.activity_name}</h3>
-                            <span class="status-badge status-${act.activity_status}">${act.activity_status}</span>
-                          </div>
-                          <p class="text-sm text-gray-500">📅 ${formatDate(act.activity_date)} ${act.activity_time ? `• ⏰ ${act.activity_time}` : ''}</p>
-                          <p class="text-sm text-gray-500">📍 ${act.activity_location}</p>
-                          <p class="text-sm text-gray-500 mt-1">👥 ${activityAttendances.length} peserta hadir</p>
-                          ${activityAttendances.length > 0 ? `
-                            <button onclick="toggleActivityHistory('${act.__backendId}')" class="text-xs mt-2 px-3 py-1 rounded-lg border hover:bg-gray-50" style="color: ${secondaryColor}; border-color: ${secondaryColor};">
-                              Lihat Detail Peserta
-                            </button>
-                            <div id="history-${act.__backendId}" class="hidden mt-3 border-t pt-3">
-                              <div class="space-y-2">
-                                ${activityAttendances.map(att => {
-                                  const attendeeUser = users.find(u => u.username === att.user_username);
-                                  return `
-                                    <div class="flex items-center justify-between text-sm bg-gray-50 rounded-lg p-2">
-                                      <div class="flex items-center gap-2">
-                                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold" style="background: ${secondaryColor};">
-                                          ${attendeeUser ? attendeeUser.name.charAt(0).toUpperCase() : '?'}
-                                        </div>
-                                        <div>
-                                          <p class="font-medium">${attendeeUser ? attendeeUser.name : 'Unknown'}</p>
-                                          <p class="text-xs text-gray-500">${attendeeUser ? attendeeUser.rt : '-'} • ${attendeeUser ? attendeeUser.position : '-'}</p>
-                                        </div>
-                                      </div>
-                                      <span class="text-xs text-gray-500">${formatDateTime(att.attendance_time)}</span>
-                                    </div>
-                                  `;
-                                }).join('')}
-                              </div>
-                            </div>
-                          ` : ''}
-                        </div>
-                      </div>
-                    </div>
-                  `;
-                  }).join('')}
-                </div>
-              `}
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function toggleActivityHistory(activityId) {
-      const element = document.getElementById('history-' + activityId);
-      if (element) {
-        element.classList.toggle('hidden');
-      }
-    }
-
-    function viewActivityAttendance(activityName) {
-      const activityAttendances = attendances.filter(a => a.activity_name === activityName);
-      const primaryColor = config.primary_color || defaultConfig.primary_color;
-      const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
-      const textColor = config.text_color || defaultConfig.text_color;
-      const surfaceColor = config.surface_color || defaultConfig.surface_color;
-
-      const modalContent = `
-        <div class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4" onclick="closeModal(event)">
-          <div class="rounded-2xl p-6 max-w-6xl w-full max-h-[90vh] overflow-auto" style="background: ${surfaceColor};" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center mb-6">
-              <div>
-                <h2 class="text-2xl font-bold" style="color: ${textColor};">Daftar Absensi</h2>
-                <p class="text-gray-500">${activityName}</p>
-                <p class="text-sm text-gray-500 mt-1">Total Peserta: ${activityAttendances.length} orang</p>
-              </div>
-              <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
-            </div>
-            ${activityAttendances.length === 0 ? '<p class="text-gray-400 text-center py-8">Belum ada peserta yang absen</p>' : `
-              <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                  <thead>
-                    <tr class="border-b-2 border-gray-200">
-                      <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">No</th>
-                      <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">Nama</th>
-                      <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">RT</th>
-                      <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">Jabatan</th>
-                      <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">No. Telepon</th>
-                      <th class="text-left py-3 px-2 font-semibold" style="color: ${textColor};">Waktu Absen</th>
-                      <th class="text-center py-3 px-2 font-semibold" style="color: ${textColor};">Foto</th>
-                      <th class="text-center py-3 px-2 font-semibold" style="color: ${textColor};">TTD</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${activityAttendances.map((att, index) => {
-                      const attendeeUser = users.find(u => u.username === att.user_username);
-                      return `
-                        <tr class="border-b border-gray-100 hover:bg-gray-50">
-                          <td class="py-3 px-2">${index + 1}</td>
-                          <td class="py-3 px-2">
-                            <div class="flex items-center gap-2">
-                              <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold" style="background: ${secondaryColor};">
-                                ${attendeeUser ? attendeeUser.name.charAt(0).toUpperCase() : '?'}
-                              </div>
-                              <span class="font-medium">${attendeeUser ? attendeeUser.name : 'Unknown'}</span>
-                            </div>
-                          </td>
-                          <td class="py-3 px-2 text-gray-600">${attendeeUser ? attendeeUser.rt : '-'}</td>
-                          <td class="py-3 px-2 text-gray-600">${attendeeUser ? attendeeUser.position : '-'}</td>
-                          <td class="py-3 px-2 text-gray-600">${attendeeUser ? attendeeUser.phone : '-'}</td>
-                          <td class="py-3 px-2 text-gray-500 text-xs">${formatDateTime(att.attendance_time)}</td>
-                          <td class="py-3 px-2 text-center">
-                            ${att.attendance_photo ? `
-                              <img src="${att.attendance_photo}" alt="Foto absensi" class="w-12 h-12 rounded-lg object-cover border-2 border-gray-200 mx-auto cursor-pointer" loading="lazy" onerror="this.style.display='none';" onclick="showPhotoModal('${att.attendance_photo}')">
-                            ` : '<span class="text-gray-400">-</span>'}
-                          </td>
-                          <td class="py-3 px-2 text-center">
-                            ${att.signature ? `
-                              <img src="${att.signature}" alt="Tanda tangan" class="w-16 h-10 rounded border border-gray-200 mx-auto cursor-pointer bg-white" loading="lazy" onerror="this.style.display='none';" onclick="showPhotoModal('${att.signature}')">
-                            ` : '<span class="text-gray-400">-</span>'}
-                          </td>
-                        </tr>
-                      `;
-                    }).join('')}
-                  </tbody>
-                </table>
-              </div>
-            `}
-            <div class="mt-6 flex gap-2">
-              <button onclick="printAttendance('${activityName}')" class="flex-1 text-white font-medium py-3 px-6 rounded-xl" style="background: ${secondaryColor};">
-                🖨️ Cetak Daftar Absensi
-              </button>
-              <button onclick="closeModal()" class="flex-1 border-2 font-medium py-3 px-6 rounded-xl hover:bg-gray-50" style="color: ${textColor}; border-color: ${textColor};">
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-
-      document.getElementById('modal-container').innerHTML = modalContent;
-    }
-
-    function showPhotoModal(photoUrl) {
-      const surfaceColor = config.surface_color || defaultConfig.surface_color;
-      const modalContent = `
-        <div class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4" onclick="closeModal(event)">
-          <div class="rounded-2xl p-6 max-w-2xl w-full" style="background: ${surfaceColor};" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center mb-4">
-              <h3 class="text-xl font-bold">Preview</h3>
-              <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
-            </div>
-            <img src="${photoUrl}" alt="Preview" class="w-full rounded-xl" loading="lazy">
-            <button onclick="closeModal()" class="w-full mt-4 border-2 font-medium py-3 px-6 rounded-xl hover:bg-gray-50">
-              Tutup
-            </button>
-          </div>
-        </div>
-      `;
-      document.getElementById('modal-container').innerHTML = modalContent;
-    }
-
-    function closeModal(event) {
-      if (!event || event.target.classList.contains('modal-overlay')) {
-        document.getElementById('modal-container').innerHTML = '';
-      }
-    }
-
-    function exportUsers() {
-      if (users.length === 0) {
-        showToast('Tidak ada data warga untuk di-export', 'error');
         return;
       }
 
-      const appTitle = config.app_title || defaultConfig.app_title;
-      const rwNumber = config.rw_number || defaultConfig.rw_number;
-      const kelurahan = config.kelurahan || defaultConfig.kelurahan;
-
-      let csvContent = `${appTitle} - RW ${rwNumber} - Kelurahan ${kelurahan}\nDAFTAR WARGA TERDAFTAR\nTanggal Export: ${new Date().toLocaleDateString('id-ID')}\n\n`;
-      csvContent += 'No,Nama,Username,RT,Jabatan,No. Telepon,Tanggal Daftar\n';
-      
-      users.forEach((user, index) => {
-        csvContent += `${index + 1},"${user.name}","${user.username}","${user.rt}","${user.position}","${user.phone}","${formatDate(user.registered_at)}"\n`;
-      });
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `Data_Warga_RW${rwNumber}_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      showToast('Data warga berhasil di-export!');
-    }
-
-    function exportActivitiesReport() {
-      if (activities.length === 0) {
-        showToast('Tidak ada data kegiatan untuk di-export', 'error');
-        return;
-      }
-
-      const appTitle = config.app_title || defaultConfig.app_title;
-      const rwNumber = config.rw_number || defaultConfig.rw_number;
-      const kelurahan = config.kelurahan || defaultConfig.kelurahan;
-
-      let csvContent = `${appTitle} - RW ${rwNumber} - Kelurahan ${kelurahan}\nLAPORAN KEGIATAN\nTanggal Export: ${new Date().toLocaleDateString('id-ID')}\n\n`;
-      csvContent += 'No,Nama Kegiatan,Tanggal,Waktu,Lokasi,Status,Jumlah Peserta\n';
-      
-      activities.forEach((act, index) => {
-        const activityAttendances = attendances.filter(a => a.activity_name === act.activity_name);
-        csvContent += `${index + 1},"${act.activity_name}","${formatDate(act.activity_date)}","${act.activity_time || '-'}","${act.activity_location}","${act.activity_status}",${activityAttendances.length}\n`;
-      });
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.href = url;
-      link.download = `Laporan_Kegiatan_RW${rwNumber}_${new Date().toISOString().split('T')[0]}.csv`;
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      showToast('Laporan kegiatan berhasil di-export!');
-    }
-
-    function downloadDatabase() {
-      const appTitle = config.app_title || defaultConfig.app_title;
-      const rwNumber = config.rw_number || defaultConfig.rw_number;
-      const kelurahan = config.kelurahan || defaultConfig.kelurahan;
-      
-      const database = {
-        app_info: {
-          app_name: appTitle,
-          rw_number: rwNumber,
-          kelurahan: kelurahan,
-          version: APP_VERSION,
-          export_date: new Date().toISOString(),
-          export_date_readable: new Date().toLocaleString('id-ID')
-        },
-        statistics: {
-          total_users: users.length,
-          total_admins: admins.length,
-          total_activities: activities.length,
-          total_attendances: attendances.length,
-          active_activities: activities.filter(a => a.activity_status === 'aktif').length,
-          completed_activities: activities.filter(a => a.activity_status === 'selesai').length
-        },
-        users: users.map(u => ({
-          name: u.name,
-          username: u.username,
-          rt: u.rt,
-          position: u.position,
-          phone: u.phone,
-          registered_at: u.registered_at
-        })),
-        admins: admins.map(a => ({
-          username: a.username,
-          full_name: a.full_name,
-          email: a.email,
-          role: a.role,
-          registered_at: a.registered_at
-        })),
-        activities: activities.map(act => {
-          const activityAttendances = attendances.filter(att => att.activity_name === act.activity_name);
-          return {
-            activity_name: act.activity_name,
-            activity_date: act.activity_date,
-            activity_time: act.activity_time,
-            activity_location: act.activity_location,
-            activity_status: act.activity_status,
-            created_at: act.created_at,
-            total_attendees: activityAttendances.length,
-            attendees: activityAttendances.map(att => {
-              const user = users.find(u => u.username === att.user_username);
-              return {
-                username: att.user_username,
-                name: user ? user.name : 'Unknown',
-                rt: user ? user.rt : '-',
-                position: user ? user.position : '-',
-                attendance_time: att.attendance_time,
-                has_photo: !!att.attendance_photo,
-                has_signature: !!att.signature
-              };
-            })
-          };
-        }),
-        attendances: attendances.map(att => ({
-          user_username: att.user_username,
-          activity_name: att.activity_name,
-          attendance_time: att.attendance_time,
-          has_photo: !!att.attendance_photo,
-          has_signature: !!att.signature
-        }))
+      const userData = {
+        type: 'user',
+        name: document.getElementById('reg-name').value.trim(),
+        username: username,
+        password: document.getElementById('reg-password').value,
+        rt: document.getElementById('reg-rt').value.trim(),
+        position: document.getElementById('reg-position').value,
+        phone: document.getElementById('reg-phone').value.trim(),
+        registered_at: new Date().toISOString()
       };
 
-      try {
-        const jsonString = JSON.stringify(database, null, 2);
-        const blob = new Blob([jsonString], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `Database_Absensi_RW${rwNumber}_${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(link);
-        link.click();
-        
-        setTimeout(() => {
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-        }, 100);
-        
-        showToast('Database berhasil didownload!');
-      } catch (error) {
-        showToast('Gagal mendownload database', 'error');
-        console.error('Download error:', error);
-      }
-    }
-
-    function printAttendance(activityName) {
-      const activity = activities.find(a => a.activity_name === activityName);
-      const activityAttendances = attendances.filter(a => a.activity_name === activityName);
-      
-      if (activityAttendances.length === 0) {
-        showToast('Tidak ada data absensi untuk dicetak', 'error');
-        return;
-      }
-
-      const appTitle = config.app_title || defaultConfig.app_title;
-      const rwNumber = config.rw_number || defaultConfig.rw_number;
-      const kelurahan = config.kelurahan || defaultConfig.kelurahan;
-
-      const printWindow = window.open('', '_blank');
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Daftar Absensi - ${activityName}</title>
-          <style>
-            body { 
-              font-family: Arial, sans-serif; 
-              padding: 20px;
-              max-width: 1200px;
-              margin: 0 auto;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 30px;
-              border-bottom: 3px solid #000;
-              padding-bottom: 20px;
-            }
-            .header h1 { margin: 5px 0; font-size: 24px; }
-            .header h2 { margin: 5px 0; font-size: 20px; font-weight: normal; }
-            .header p { margin: 5px 0; font-size: 14px; }
-            .info-box {
-              background: #f5f5f5;
-              padding: 15px;
-              margin-bottom: 20px;
-              border-radius: 8px;
-            }
-            .info-box p { margin: 5px 0; }
-            table { 
-              width: 100%; 
-              border-collapse: collapse; 
-              margin-top: 20px;
-            }
-            th, td { 
-              border: 1px solid #333; 
-              padding: 8px; 
-              text-align: left;
-              font-size: 11px;
-            }
-            th { 
-              background-color: #e5e7eb; 
-              font-weight: bold;
-            }
-            tr:nth-child(even) {
-              background-color: #f9fafb;
-            }
-            .footer {
-              margin-top: 40px;
-              text-align: right;
-            }
-            .signature {
-              margin-top: 80px;
-              border-top: 1px solid #000;
-              display: inline-block;
-              padding-top: 5px;
-            }
-            .signature-img {
-              max-width: 80px;
-              max-height: 40px;
-              border: 1px solid #ddd;
-              background: white;
-            }
-            @media print {
-              button { display: none; }
-              .no-print { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>${appTitle}</h1>
-            <h2>RW ${rwNumber} - Kelurahan ${kelurahan}</h2>
-            <p>DAFTAR HADIR KEGIATAN</p>
-          </div>
-          
-          <div class="info-box">
-            <p><strong>Nama Kegiatan:</strong> ${activityName}</p>
-            <p><strong>Tanggal:</strong> ${formatDate(activity.activity_date)} ${activity.activity_time ? `Pukul ${activity.activity_time}` : ''}</p>
-            <p><strong>Lokasi:</strong> ${activity.activity_location}</p>
-            <p><strong>Total Peserta:</strong> ${activityAttendances.length} orang</p>
-            <p><strong>Dicetak:</strong> ${new Date().toLocaleString('id-ID')}</p>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th style="width: 30px;">No</th>
-                <th>Nama Lengkap</th>
-                <th style="width: 60px;">RT</th>
-                <th>Jabatan/Satuan</th>
-                <th style="width: 100px;">No. Telepon</th>
-                <th style="width: 120px;">Waktu Absen</th>
-                <th style="width: 100px;">Tanda Tangan</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${activityAttendances.map((att, index) => {
-                const attendeeUser = users.find(u => u.username === att.user_username);
-                return `
-                  <tr>
-                    <td style="text-align: center;">${index + 1}</td>
-                    <td>${attendeeUser ? attendeeUser.name : 'Unknown'}</td>
-                    <td>${attendeeUser ? attendeeUser.rt : '-'}</td>
-                    <td>${attendeeUser ? attendeeUser.position : '-'}</td>
-                    <td>${attendeeUser ? attendeeUser.phone : '-'}</td>
-                    <td style="font-size: 10px;">${formatDateTime(att.attendance_time)}</td>
-                    <td style="text-align: center; padding: 4px;">
-                      ${att.signature ? `<img src="${att.signature}" class="signature-img" alt="TTD">` : '-'}
-                    </td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-
-          <div class="footer">
-            <p>${kelurahan}, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-            <p>Ketua RW ${rwNumber}</p>
-            <div class="signature">
-              <p>(_____________________)</p>
-            </div>
-          </div>
-
-          <div class="no-print" style="text-align: center; margin-top: 30px;">
-            <button onclick="window.print()" style="background: #1e3a5f; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; margin-right: 10px;">🖨️ Cetak</button>
-            <button onclick="window.close()" style="background: #6b7280; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">Tutup</button>
-          </div>
-        </body>
-        </html>
-      `);
-      printWindow.document.close();
-      
-      showToast('Dokumen siap dicetak!');
-    }
-
-    function renderUserDashboard() {
-      const primaryColor = config.primary_color || defaultConfig.primary_color;
-      const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
-      const surfaceColor = config.surface_color || defaultConfig.surface_color;
-      const bgColor = config.background_color || defaultConfig.background_color;
-      const textColor = config.text_color || defaultConfig.text_color;
-
-      const activeActivities = activities.filter(a => a.activity_status === 'aktif');
-      const userAttendances = attendances.filter(a => a.user_username === currentUser.username);
-
-      return `
-        <div class="min-h-full" style="background: ${bgColor};">
-          <div class="gradient-bg text-white px-4 py-6" style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d1b2a 100%);">
-            <div class="container mx-auto flex justify-between items-center">
-              <div>
-                <p class="font-bold">${currentUser.name}</p>
-                <p class="text-sm opacity-80">RT ${currentUser.rt} • ${APP_VERSION}</p>
-              </div>
-              <button onclick="logout()" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg">Keluar</button>
-            </div>
-          </div>
-
-          <div class="container mx-auto px-4 py-6">
-            <div class="rounded-2xl shadow-lg p-6 mb-6" style="background: ${surfaceColor};">
-              <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold">👤 Profil Saya</h2>
-                <button onclick="toggleEditProfile()" id="toggle-edit-btn" class="text-sm px-4 py-2 rounded-lg border hover:bg-gray-50" style="color: ${secondaryColor}; border-color: ${secondaryColor};">
-                  ✏️ Edit Profil
-                </button>
-              </div>
-              
-              <div id="profile-view" class="mb-4 hidden">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div class="border rounded-lg p-3">
-                    <p class="text-xs text-gray-500 mb-1">Nama Lengkap</p>
-                    <p class="font-medium" style="color: ${textColor};">${currentUser.name}</p>
-                  </div>
-                  <div class="border rounded-lg p-3">
-                    <p class="text-xs text-gray-500 mb-1">Username</p>
-                    <p class="font-medium" style="color: ${textColor};">${currentUser.username}</p>
-                  </div>
-                  <div class="border rounded-lg p-3">
-                    <p class="text-xs text-gray-500 mb-1">RT</p>
-                    <p class="font-medium" style="color: ${textColor};">${currentUser.rt}</p>
-                  </div>
-                  <div class="border rounded-lg p-3">
-                    <p class="text-xs text-gray-500 mb-1">Jabatan / Satuan</p>
-                    <p class="font-medium" style="color: ${textColor};">${currentUser.position}</p>
-                  </div>
-                  <div class="border rounded-lg p-3 md:col-span-2">
-                    <p class="text-xs text-gray-500 mb-1">No Telepon</p>
-                    <p class="font-medium" style="color: ${textColor};">${currentUser.phone}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div id="profile-edit" class="hidden">
-                <form onsubmit="handleProfileUpdate(event)">
-                  <div class="space-y-4 mb-4">
-                    <div>
-                      <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Nama Lengkap</label>
-                      <input type="text" id="edit-name" required value="${currentUser.name}"
-                        class="input-field w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:outline-none">
-                    </div>
-                    <div>
-                      <label class="block text-sm font-medium mb-2" style="color: ${textColor};">RT</label>
-                      <input type="text" id="edit-rt" required value="${currentUser.rt}"
-                        class="input-field w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:outline-none">
-                    </div>
-                    <div>
-                      <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Jabatan / Satuan</label>
-                      <input type="text" id="edit-position" required value="${currentUser.position}"
-                        class="input-field w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:outline-none">
-                    </div>
-                    <div>
-                      <label class="block text-sm font-medium mb-2" style="color: ${textColor};">No Telepon</label>
-                      <input type="tel" id="edit-phone" required value="${currentUser.phone}"
-                        class="input-field w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:outline-none">
-                    </div>
-                    <div class="border-t pt-4 mt-4">
-                      <p class="text-sm font-semibold mb-3" style="color: ${textColor};">🔒 Ubah Password (Opsional)</p>
-                      <div class="space-y-3">
-                        <div>
-                          <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Password Baru</label>
-                          <input type="password" id="edit-new-password" minlength="6"
-                            class="input-field w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:outline-none"
-                            placeholder="Kosongkan jika tidak ingin mengubah">
-                        </div>
-                        <div>
-                          <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Konfirmasi Password Baru</label>
-                          <input type="password" id="edit-confirm-password" minlength="6"
-                            class="input-field w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:outline-none"
-                            placeholder="Ulangi password baru">
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="flex gap-2">
-                    <button type="submit" id="save-profile-btn" class="flex-1 text-white font-semibold py-2 px-4 rounded-lg" style="background: ${secondaryColor};">
-                      💾 Simpan Perubahan
-                    </button>
-                    <button type="button" onclick="toggleEditProfile()" class="flex-1 border-2 font-semibold py-2 px-4 rounded-lg hover:bg-gray-50" style="color: ${textColor}; border-color: ${textColor};">
-                      Batal
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-
-            <div class="rounded-2xl shadow-lg p-6 mb-6" style="background: ${surfaceColor};">
-              <h2 class="text-xl font-bold mb-6">📅 Kegiatan Aktif</h2>
-              ${activeActivities.length === 0 ? '<p class="text-gray-400 text-center py-8">Tidak ada kegiatan aktif</p>' : `
-                <div class="space-y-4">
-                  ${activeActivities.map(act => {
-                    const attended = userAttendances.find(a => a.activity_name === act.activity_name);
-                    const activityAttendances = attendances.filter(a => a.activity_name === act.activity_name);
-                    return `
-                      <div class="border rounded-xl p-4">
-                        <div class="flex justify-between items-start mb-3">
-                          <div>
-                            <h3 class="font-semibold text-lg">${act.activity_name}</h3>
-                            <p class="text-sm text-gray-500">📅 ${formatDate(act.activity_date)} ${act.activity_time ? `• ⏰ ${act.activity_time}` : ''}</p>
-                            <p class="text-sm text-gray-500">📍 ${act.activity_location}</p>
-                          </div>
-                          <span class="text-xs px-3 py-1 rounded-full" style="background: ${secondaryColor}20; color: ${secondaryColor};">
-                            ${activityAttendances.length} Peserta
-                          </span>
-                        </div>
-                        ${attended ? '<p class="text-green-600 font-medium mb-2">✓ Anda sudah absen</p>' : `
-                          <button onclick="startAttendance('${act.activity_name}')" class="w-full btn-primary text-white font-semibold py-2 px-4 rounded-lg mb-2">
-                            📸 Absen Sekarang
-                          </button>
-                        `}
-                        <button onclick="toggleAttendeeList('${act.activity_name.replace(/\s+/g, '-').replace(/'/g, '')}')" class="w-full text-sm py-2 px-4 rounded-lg border border-gray-300 hover:bg-gray-50" style="color: ${textColor};">
-                          👥 Lihat Daftar Peserta
-                        </button>
-                        <div id="attendee-list-${act.activity_name.replace(/\s+/g, '-').replace(/'/g, '')}" class="hidden mt-4 border-t pt-4">
-                          ${activityAttendances.length === 0 ? '<p class="text-gray-400 text-sm text-center py-4">Belum ada peserta yang absen</p>' : `
-                            <div class="overflow-x-auto">
-                              <table class="w-full text-sm">
-                                <thead>
-                                  <tr class="border-b-2 border-gray-200">
-                                    <th class="text-left py-2 px-2 font-semibold" style="color: ${textColor};">Nama</th>
-                                    <th class="text-left py-2 px-2 font-semibold" style="color: ${textColor};">RT</th>
-                                    <th class="text-left py-2 px-2 font-semibold" style="color: ${textColor};">Jabatan</th>
-                                    <th class="text-left py-2 px-2 font-semibold" style="color: ${textColor};">Waktu</th>
-                                    <th class="text-center py-2 px-2 font-semibold" style="color: ${textColor};">Foto</th>
-                                    <th class="text-center py-2 px-2 font-semibold" style="color: ${textColor};">TTD</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  ${activityAttendances.map(att => {
-                                    const attendeeUser = users.find(u => u.username === att.user_username);
-                                    const isCurrentUser = att.user_username === currentUser.username;
-                                    return `
-                                      <tr class="border-b border-gray-100 hover:bg-gray-50 ${isCurrentUser ? 'bg-green-50' : ''}">
-                                        <td class="py-3 px-2">
-                                          <div class="flex items-center gap-2">
-                                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0" style="background: ${secondaryColor};">
-                                              ${attendeeUser ? attendeeUser.name.charAt(0).toUpperCase() : '?'}
-                                            </div>
-                                            <span class="font-medium truncate" style="color: ${textColor};">
-                                              ${attendeeUser ? attendeeUser.name : 'Unknown'}
-                                              ${isCurrentUser ? '<span class="text-green-600 text-xs ml-1">(Anda)</span>' : ''}
-                                            </span>
-                                          </div>
-                                        </td>
-                                        <td class="py-3 px-2 text-gray-600">${attendeeUser ? attendeeUser.rt : '-'}</td>
-                                        <td class="py-3 px-2 text-gray-600">${attendeeUser ? attendeeUser.position : '-'}</td>
-                                        <td class="py-3 px-2 text-xs text-gray-500">${formatDateTime(att.attendance_time)}</td>
-                                        <td class="py-3 px-2 text-center">
-                                          ${att.attendance_photo ? `
-                                            <img src="${att.attendance_photo}" alt="Foto absensi" class="w-10 h-10 rounded-lg object-cover border-2 border-gray-200 mx-auto" loading="lazy" onerror="this.style.display='none';">
-                                          ` : '<span class="text-gray-400">-</span>'}
-                                        </td>
-                                        <td class="py-3 px-2 text-center">
-                                          ${att.signature ? `
-                                            <img src="${att.signature}" alt="Tanda tangan" class="w-12 h-8 rounded border border-gray-200 mx-auto bg-white" loading="lazy" onerror="this.style.display='none';">
-                                          ` : '<span class="text-gray-400">-</span>'}
-                                        </td>
-                                      </tr>
-                                    `;
-                                  }).join('')}
-                                </tbody>
-                              </table>
-                            </div>
-                          `}
-                        </div>
-                      </div>
-                    `;
-                  }).join('')}
-                </div>
-              `}
-            </div>
-
-            <div class="rounded-2xl shadow-lg p-6" style="background: ${surfaceColor};">
-              <h2 class="text-xl font-bold mb-4">📋 Riwayat Kehadiran Saya</h2>
-              ${userAttendances.length === 0 ? '<p class="text-gray-400 text-center py-8">Belum ada riwayat absensi</p>' : `
-                <div class="space-y-3">
-                  ${userAttendances.map(att => {
-                    const activity = activities.find(a => a.activity_name === att.activity_name);
-                    return `
-                      <div class="border rounded-lg p-3 flex items-center justify-between">
-                        <div>
-                          <p class="font-medium text-sm" style="color: ${textColor};">${att.activity_name}</p>
-                          <p class="text-xs text-gray-500">${formatDateTime(att.attendance_time)}</p>
-                        </div>
-                        <span class="status-badge ${activity && activity.activity_status === 'aktif' ? 'status-aktif' : 'status-selesai'}">
-                          ✓ Hadir
-                        </span>
-                      </div>
-                    `;
-                  }).join('')}
-                </div>
-              `}
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function toggleAttendeeList(activityId) {
-      const listElement = document.getElementById('attendee-list-' + activityId);
-      if (listElement) {
-        listElement.classList.toggle('hidden');
-      }
-    }
-
-    function toggleEditProfile() {
-      const viewElement = document.getElementById('profile-view');
-      const editElement = document.getElementById('profile-edit');
-      const btnElement = document.getElementById('toggle-edit-btn');
-      
-      if (viewElement && editElement && btnElement) {
-        viewElement.classList.toggle('hidden');
-        editElement.classList.toggle('hidden');
-        
-        if (editElement.classList.contains('hidden')) {
-          btnElement.textContent = '✏️ Edit Profil';
-        } else {
-          btnElement.textContent = '❌ Tutup';
-        }
-      }
-    }
-
-    async function handleProfileUpdate(e) {
-      e.preventDefault();
-      const btn = document.getElementById('save-profile-btn');
-      const name = document.getElementById('edit-name').value.trim();
-      const rt = document.getElementById('edit-rt').value.trim();
-      const position = document.getElementById('edit-position').value.trim();
-      const phone = document.getElementById('edit-phone').value.trim();
-      const newPassword = document.getElementById('edit-new-password').value;
-      const confirmPassword = document.getElementById('edit-confirm-password').value;
-
-      if (newPassword || confirmPassword) {
-        if (newPassword !== confirmPassword) {
-          showToast('Password baru dan konfirmasi tidak cocok!', 'error');
-          return;
-        }
-        if (newPassword.length < 6) {
-          showToast('Password minimal 6 karakter!', 'error');
-          return;
-        }
-      }
-
-      btn.disabled = true;
-      btn.textContent = '⏳ Menyimpan...';
-
-      const updateData = {
-        ...currentUser,
-        name,
-        rt,
-        position,
-        phone
-      };
-
-      if (newPassword) {
-        updateData.password = newPassword;
-      }
-
-      const result = await window.dataSdk.update(updateData);
+      const result = await createData(userData);
 
       if (result.isOk) {
-        showToast(newPassword ? 'Profil dan password berhasil diperbarui!' : 'Profil berhasil diperbarui!');
-        toggleEditProfile();
+        showToast('Pendaftaran berhasil! Silakan login.', 'success');
+        document.getElementById('register-form').reset();
+        navigate('login-page');
       } else {
-        showToast('Gagal memperbarui profil', 'error');
-        btn.disabled = false;
-        btn.textContent = '💾 Simpan Perubahan';
+        showToast('Pendaftaran gagal: ' + (result.error || 'Unknown error'), 'error');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Daftar Sekarang';
+    });
+
+    document.getElementById('goto-register-btn').addEventListener('click', () => {
+      navigate('register-page');
+    });
+
+    document.getElementById('goto-login-btn').addEventListener('click', () => {
+      navigate('login-page');
+    });
+
+    // ========================================
+    // USER DASHBOARD
+    // ========================================
+
+    function renderUserDashboard(user) {
+      document.getElementById('user-welcome').textContent = `Selamat datang, ${user.name}!`;
+      
+      // Render active activities
+      const activeActivities = activities.filter(a => a.activity_status === 'aktif');
+      const listContainer = document.getElementById('user-activities-list');
+      
+      if (activeActivities.length === 0) {
+        document.getElementById('user-no-activities').classList.remove('hidden');
+        listContainer.innerHTML = '';
+      } else {
+        document.getElementById('user-no-activities').classList.add('hidden');
+        listContainer.innerHTML = activeActivities.map(activity => {
+          const hasAttended = attendances.some(att => 
+            att.user_username === user.username && att.activity_name === activity.activity_name
+          );
+          
+          return `
+            <div class="bg-white rounded-xl shadow-md p-6 activity-card">
+              <div class="flex items-start justify-between mb-4">
+                <div>
+                  <h3 class="text-xl font-bold text-gray-800">${activity.activity_name}</h3>
+                  <p class="text-gray-600 text-sm mt-1">📍 ${activity.activity_location}</p>
+                </div>
+                <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
+                  Aktif
+                </span>
+              </div>
+              <div class="space-y-2 mb-4">
+                <p class="text-gray-700"><strong>📅 Tanggal:</strong> ${formatDate(activity.activity_date)}</p>
+                <p class="text-gray-700"><strong>🕐 Waktu:</strong> ${activity.activity_time}</p>
+              </div>
+              ${hasAttended ? `
+                <div class="bg-green-50 border-2 border-green-200 rounded-lg p-4 text-center">
+                  <span class="text-green-600 font-semibold">✅ Anda sudah absen</span>
+                </div>
+              ` : `
+                <button onclick="openAttendanceModal('${activity.__backendId}')" 
+                  class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition btn-primary">
+                  📝 Absen Sekarang
+                </button>
+              `}
+            </div>
+          `;
+        }).join('');
+      }
+      
+      // Render attendance history
+      const userAttendances = attendances.filter(att => att.user_username === user.username);
+      const historyContainer = document.getElementById('user-attendance-history');
+      
+      if (userAttendances.length === 0) {
+        historyContainer.innerHTML = `
+          <tr>
+            <td colspan="3" class="px-6 py-8 text-center text-gray-500">
+              Belum ada riwayat absensi
+            </td>
+          </tr>
+        `;
+      } else {
+        historyContainer.innerHTML = userAttendances
+          .sort((a, b) => new Date(b.attendance_time) - new Date(a.attendance_time))
+          .map(att => `
+            <tr class="border-t hover:bg-gray-50">
+              <td class="px-6 py-4 text-gray-800">${att.activity_name}</td>
+              <td class="px-6 py-4 text-gray-600">${formatDateTime(att.attendance_time)}</td>
+              <td class="px-6 py-4">
+                <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
+                  Hadir
+                </span>
+              </td>
+            </tr>
+          `).join('');
       }
     }
 
-    function renderActivityForm() {
-      const primaryColor = config.primary_color || defaultConfig.primary_color;
-      const textColor = config.text_color || defaultConfig.text_color;
-      const surfaceColor = config.surface_color || defaultConfig.surface_color;
+    document.getElementById('user-logout-btn').addEventListener('click', () => {
+      currentUser = null;
+      isAdmin = false;
+      navigate('login-page');
+      showToast('Logout berhasil', 'success');
+    });
 
-      const isEdit = editingActivity !== null;
-      const act = isEdit ? activities.find(a => a.__backendId === editingActivity) : null;
+    // ========================================
+    // ADMIN DASHBOARD
+    // ========================================
 
-      return `
-        <div class="min-h-full gradient-bg flex items-center justify-center p-4" style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d1b2a 100%);">
-          <div class="card-glass rounded-2xl p-8 w-full max-w-md" style="background: ${surfaceColor};">
-            <button onclick="editingActivity = null; navigate('admin-dashboard')" class="mb-6 flex items-center text-gray-500 hover:text-gray-700">
-              ← Kembali
-            </button>
-            
-            <h2 class="text-2xl font-bold mb-6" style="color: ${textColor};">${isEdit ? 'Edit Kegiatan' : 'Tambah Kegiatan'}</h2>
-
-            <form onsubmit="handleActivitySubmit(event)">
-              <input type="hidden" id="activity-id" value="${isEdit ? act.__backendId : ''}">
-              <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Nama Kegiatan</label>
-                <input type="text" id="activity-name" required value="${isEdit ? act.activity_name : ''}"
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none">
-              </div>
-              <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Tanggal</label>
-                <input type="date" id="activity-date" required value="${isEdit ? act.activity_date : ''}"
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none">
-              </div>
-              <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Waktu</label>
-                <input type="time" id="activity-time" value="${isEdit && act.activity_time ? act.activity_time : ''}"
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none">
-              </div>
-              <div class="mb-4">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Lokasi</label>
-                <input type="text" id="activity-location" required value="${isEdit ? act.activity_location : ''}"
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none">
-              </div>
-              <div class="mb-6">
-                <label class="block text-sm font-medium mb-2" style="color: ${textColor};">Status</label>
-                <select id="activity-status" required
-                  class="input-field w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none">
-                  <option value="aktif" ${isEdit && act.activity_status === 'aktif' ? 'selected' : ''}>Aktif</option>
-                  <option value="selesai" ${isEdit && act.activity_status === 'selesai' ? 'selected' : ''}>Selesai</option>
-                  <option value="dibatalkan" ${isEdit && act.activity_status === 'dibatalkan' ? 'selected' : ''}>Dibatalkan</option>
-                </select>
-              </div>
-              <button type="submit" id="activity-btn" class="w-full btn-primary text-white font-semibold py-3 px-6 rounded-xl">
-                ${isEdit ? 'Simpan' : 'Tambah'}
-              </button>
-            </form>
-          </div>
-        </div>
-      `;
+    function renderAdminDashboard() {
+      // Update statistics
+      document.getElementById('stat-users').textContent = users.length;
+      document.getElementById('stat-activities').textContent = activities.length;
+      document.getElementById('stat-active').textContent = activities.filter(a => a.activity_status === 'aktif').length;
+      document.getElementById('stat-attendances').textContent = attendances.length;
+      
+      // Render activities list
+      renderActivitiesList();
+      renderUsersTable();
+      renderAttendancesTable();
+      updateActivityFilter();
     }
 
-    async function handleActivitySubmit(e) {
-      e.preventDefault();
-      const btn = document.getElementById('activity-btn');
-      const id = document.getElementById('activity-id').value;
-      const name = document.getElementById('activity-name').value.trim();
-      const date = document.getElementById('activity-date').value;
-      const time = document.getElementById('activity-time').value;
-      const location = document.getElementById('activity-location').value.trim();
-      const status = document.getElementById('activity-status').value;
+    function renderActivitiesList() {
+      const container = document.getElementById('activities-list');
+      
+      if (activities.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12 text-gray-500">
+            <span class="text-6xl mb-4 block">📅</span>
+            <p class="text-xl">Belum ada kegiatan</p>
+          </div>
+        `;
+        return;
+      }
+      
+      container.innerHTML = activities.map(activity => {
+        const attendanceCount = attendances.filter(att => att.activity_name === activity.activity_name).length;
+        const statusColors = {
+          'aktif': 'bg-green-100 text-green-800',
+          'selesai': 'bg-gray-100 text-gray-800',
+          'dibatalkan': 'bg-red-100 text-red-800'
+        };
+        
+        return `
+          <div class="border-2 border-gray-200 rounded-xl p-6 hover:border-blue-300 transition">
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex-1">
+                <h3 class="text-xl font-bold text-gray-800 mb-2">${activity.activity_name}</h3>
+                <div class="space-y-1 text-gray-700">
+                  <p><strong>📅 Tanggal:</strong> ${formatDate(activity.activity_date)}</p>
+                  <p><strong>🕐 Waktu:</strong> ${activity.activity_time}</p>
+                  <p><strong>📍 Lokasi:</strong> ${activity.activity_location}</p>
+                  <p><strong>👥 Peserta Hadir:</strong> ${attendanceCount} orang</p>
+                </div>
+              </div>
+              <span class="px-4 py-2 rounded-full text-sm font-semibold ${statusColors[activity.activity_status]}">
+                ${activity.activity_status.toUpperCase()}
+              </span>
+            </div>
+            <div class="flex gap-3">
+              <button onclick="editActivity('${activity.__backendId}')" 
+                class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">
+                ✏️ Edit
+              </button>
+              <button onclick="deleteActivity('${activity.__backendId}')" 
+                class="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition">
+                🗑️ Hapus
+              </button>
+              <button onclick="viewActivityDetail('${activity.__backendId}')" 
+                class="flex-1 bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700 transition">
+                👁️ Detail
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
 
+    function renderUsersTable() {
+      const tbody = document.getElementById('users-table-body');
+      
+      if (users.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+              Belum ada warga terdaftar
+            </td>
+          </tr>
+        `;
+        return;
+      }
+      
+      tbody.innerHTML = users.map(user => `
+        <tr class="border-t hover:bg-gray-50">
+          <td class="px-6 py-4 text-gray-800 font-semibold">${user.name}</td>
+          <td class="px-6 py-4 text-gray-600">${user.username}</td>
+          <td class="px-6 py-4 text-gray-600">${user.rt}</td>
+          <td class="px-6 py-4 text-gray-600">${user.position}</td>
+          <td class="px-6 py-4 text-gray-600">${user.phone}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderAttendancesTable() {
+      const tbody = document.getElementById('attendances-table-body');
+      const filterActivity = document.getElementById('filter-activity').value;
+      
+      let filteredAttendances = attendances;
+      if (filterActivity) {
+        filteredAttendances = attendances.filter(att => att.activity_name === filterActivity);
+      }
+      
+      if (filteredAttendances.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+              Belum ada data absensi
+            </td>
+          </tr>
+        `;
+        return;
+      }
+      
+      tbody.innerHTML = filteredAttendances
+        .sort((a, b) => new Date(b.attendance_time) - new Date(a.attendance_time))
+        .map(att => {
+          const user = users.find(u => u.username === att.user_username);
+          const userName = user ? user.name : att.user_username;
+          
+          return `
+            <tr class="border-t hover:bg-gray-50">
+              <td class="px-6 py-4 text-gray-800 font-semibold">${userName}</td>
+              <td class="px-6 py-4 text-gray-600">${att.activity_name}</td>
+              <td class="px-6 py-4 text-gray-600">${formatDateTime(att.attendance_time)}</td>
+              <td class="px-6 py-4">
+                <button onclick="viewImage('${att.attendance_photo}')" class="text-blue-600 hover:underline">
+                  👁️ Lihat Foto
+                </button>
+              </td>
+              <td class="px-6 py-4">
+                <button onclick="viewImage('${att.signature}')" class="text-blue-600 hover:underline">
+                  👁️ Lihat TTD
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+    }
+
+    function updateActivityFilter() {
+      const select = document.getElementById('filter-activity');
+      select.innerHTML = '<option value="">Semua Kegiatan</option>' + 
+        activities.map(act => `<option value="${act.activity_name}">${act.activity_name}</option>`).join('');
+    }
+
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        
+        // Update button styles
+        document.querySelectorAll('.tab-btn').forEach(b => {
+          b.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+          b.classList.add('text-gray-600');
+        });
+        btn.classList.remove('text-gray-600');
+        btn.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+        
+        // Show/hide content
+        document.querySelectorAll('.tab-content').forEach(content => {
+          content.classList.add('hidden');
+        });
+        document.getElementById('tab-' + tab).classList.remove('hidden');
+      });
+    });
+
+    document.getElementById('filter-activity').addEventListener('change', renderAttendancesTable);
+
+    document.getElementById('admin-logout-btn').addEventListener('click', () => {
+      currentUser = null;
+      isAdmin = false;
+      navigate('login-page');
+      showToast('Logout berhasil', 'success');
+    });
+
+    // ========================================
+    // ACTIVITY MANAGEMENT
+    // ========================================
+
+    document.getElementById('add-activity-btn').addEventListener('click', () => {
+      document.getElementById('activity-modal-title').textContent = 'Tambah Kegiatan Baru';
+      document.getElementById('activity-form').reset();
+      document.getElementById('activity-id').value = '';
+      document.getElementById('activity-modal').classList.remove('hidden');
+    });
+
+    document.getElementById('activity-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('save-activity-btn');
+      
       btn.disabled = true;
       btn.textContent = 'Menyimpan...';
 
+      const activityId = document.getElementById('activity-id').value;
+      const activityData = {
+        activity_name: document.getElementById('activity-name').value.trim(),
+        activity_date: document.getElementById('activity-date').value,
+        activity_time: document.getElementById('activity-time').value,
+        activity_location: document.getElementById('activity-location').value.trim(),
+        activity_status: document.getElementById('activity-status').value,
+        created_at: new Date().toISOString()
+      };
+
       let result;
-      if (id) {
-        const existing = activities.find(a => a.__backendId === id);
-        result = await window.dataSdk.update({
-          ...existing,
-          activity_name: name,
-          activity_date: date,
-          activity_time: time,
-          activity_location: location,
-          activity_status: status
-        });
+      if (activityId) {
+        // Update
+        const activity = activities.find(a => a.__backendId === activityId);
+        result = await updateData({ ...activity, ...activityData });
       } else {
-        result = await window.dataSdk.create({
-          type: 'activity',
-          activity_name: name,
-          activity_date: date,
-          activity_time: time,
-          activity_location: location,
-          activity_status: status,
-          created_at: new Date().toISOString()
-        });
+        // Create
+        result = await createData({ type: 'activity', ...activityData });
       }
 
       if (result.isOk) {
-        showToast('Kegiatan berhasil disimpan!');
-        editingActivity = null;
-        navigate('admin-dashboard');
+        showToast(activityId ? 'Kegiatan diperbarui!' : 'Kegiatan ditambahkan!', 'success');
+        document.getElementById('activity-modal').classList.add('hidden');
+        renderActivitiesList();
+        updateActivityFilter();
       } else {
-        showToast('Gagal menyimpan', 'error');
-        btn.disabled = false;
-        btn.textContent = id ? 'Simpan' : 'Tambah';
+        showToast('Gagal menyimpan: ' + (result.error || 'Unknown error'), 'error');
       }
-    }
+
+      btn.disabled = false;
+      btn.textContent = 'Simpan';
+    });
+
+    document.getElementById('cancel-activity-btn').addEventListener('click', () => {
+      document.getElementById('activity-modal').classList.add('hidden');
+    });
 
     function editActivity(id) {
-      editingActivity = id;
-      navigate('activity-form');
-    }
-
-    function deleteActivityConfirm(id) {
-      const act = activities.find(a => a.__backendId === id);
-      const primaryColor = config.primary_color || defaultConfig.primary_color;
-      const textColor = config.text_color || defaultConfig.text_color;
-      const surfaceColor = config.surface_color || defaultConfig.surface_color;
-
-      const modalContent = `
-        <div class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4" onclick="closeModal(event)">
-          <div class="rounded-2xl p-6 max-w-md w-full" style="background: ${surfaceColor};" onclick="event.stopPropagation()">
-            <h3 class="text-xl font-bold mb-4" style="color: ${textColor};">Konfirmasi Hapus</h3>
-            <p class="text-gray-600 mb-6">Apakah Anda yakin ingin menghapus kegiatan "${act.activity_name}"?</p>
-            <div class="flex gap-2">
-              <button onclick="deleteActivity('${id}')" class="flex-1 bg-red-500 text-white font-medium py-2 px-4 rounded-lg hover:bg-red-600">
-                Hapus
-              </button>
-              <button onclick="closeModal()" class="flex-1 border-2 font-medium py-2 px-4 rounded-lg hover:bg-gray-50" style="color: ${textColor}; border-color: ${textColor};">
-                Batal
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-      document.getElementById('modal-container').innerHTML = modalContent;
+      const activity = activities.find(a => a.__backendId === id);
+      if (!activity) return;
+      
+      document.getElementById('activity-modal-title').textContent = 'Edit Kegiatan';
+      document.getElementById('activity-id').value = id;
+      document.getElementById('activity-name').value = activity.activity_name;
+      document.getElementById('activity-date').value = activity.activity_date;
+      document.getElementById('activity-time').value = activity.activity_time;
+      document.getElementById('activity-location').value = activity.activity_location;
+      document.getElementById('activity-status').value = activity.activity_status;
+      document.getElementById('activity-modal').classList.remove('hidden');
     }
 
     async function deleteActivity(id) {
-      const act = activities.find(a => a.__backendId === id);
-      const result = await window.dataSdk.delete(act);
+      const activity = activities.find(a => a.__backendId === id);
+      if (!activity) return;
+      
+      // Custom confirmation dialog
+      const confirmed = await showConfirmDialog(
+        'Hapus Kegiatan',
+        `Yakin ingin menghapus kegiatan "${activity.activity_name}"?`
+      );
+      
+      if (!confirmed) return;
+
+      const result = await deleteData(activity);
+
       if (result.isOk) {
-        showToast('Kegiatan berhasil dihapus');
-        closeModal();
+        showToast('Kegiatan berhasil dihapus', 'success');
+        renderActivitiesList();
+        updateActivityFilter();
       } else {
-        showToast('Gagal menghapus', 'error');
+        showToast('Gagal menghapus: ' + (result.error || 'Unknown error'), 'error');
       }
     }
 
-    function renderAttendance() {
-      const primaryColor = config.primary_color || defaultConfig.primary_color;
-      const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
-      const textColor = config.text_color || defaultConfig.text_color;
-      const surfaceColor = config.surface_color || defaultConfig.surface_color;
-
-      return `
-        <div class="min-h-full gradient-bg flex items-center justify-center p-4" style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d1b2a 100%);">
-          <div class="card-glass rounded-2xl p-8 w-full max-w-md" style="background: ${surfaceColor};">
-            <button onclick="navigate('user-dashboard')" class="mb-6 flex items-center text-gray-500">
-              ← Kembali
-            </button>
-            
-            <div class="text-center mb-6">
-              <h2 class="text-2xl font-bold" style="color: ${textColor};">Absensi Kegiatan</h2>
-              <p class="text-gray-500">${selectedActivity}</p>
-            </div>
-
-            <div class="mb-6">
-              <div class="camera-container bg-gray-900 rounded-xl" style="height: 300px;">
-                <video id="attendance-video" autoplay playsinline class="w-full h-full object-cover"></video>
-              </div>
-              <canvas id="attendance-canvas" class="hidden"></canvas>
-              <div id="attendance-preview" class="hidden mt-4">
-                <img id="attendance-preview-img" class="w-full rounded-xl">
-              </div>
-            </div>
-
-            <div id="signature-section" class="hidden mb-6">
-              <label class="block text-sm font-medium mb-2" style="color: ${textColor};">✍️ Tanda Tangan Digital</label>
-              <div class="border-2 border-gray-300 rounded-xl overflow-hidden bg-white">
-                <canvas id="signature-canvas" width="400" height="150" class="w-full cursor-crosshair" style="touch-action: none;"></canvas>
-              </div>
-              <button onclick="clearSignature()" class="w-full mt-2 text-sm py-2 px-4 rounded-lg border border-gray-300 hover:bg-gray-50" style="color: ${textColor};">
-                🗑️ Hapus Tanda Tangan
-              </button>
-            </div>
-
-            <button onclick="captureAttendancePhoto()" id="capture-btn" class="w-full text-white font-semibold py-3 px-6 rounded-xl mb-3" style="background: ${secondaryColor};">
-              📸 Ambil Foto
-            </button>
-            <button onclick="submitAttendance()" id="submit-btn" class="w-full btn-primary text-white font-semibold py-3 px-6 rounded-xl hidden">
-              ✓ Konfirmasi Absensi
-            </button>
-          </div>
-        </div>
-      `;
+    function viewActivityDetail(id) {
+      const activity = activities.find(a => a.__backendId === id);
+      if (!activity) return;
+      
+      const activityAttendances = attendances.filter(att => att.activity_name === activity.activity_name);
+      const attendeesList = activityAttendances.map(att => {
+        const user = users.find(u => u.username === att.user_username);
+        return user ? user.name : att.user_username;
+      }).join(', ');
+      
+      showToast(
+        `Detail Kegiatan: ${activity.activity_name}\n\nPeserta Hadir (${activityAttendances.length}):\n${attendeesList || 'Belum ada peserta'}`,
+        'info',
+        8000
+      );
     }
 
-    function startAttendance(activityName) {
-      selectedActivity = activityName;
-      navigate('attendance');
+    // ========================================
+    // ATTENDANCE
+    // ========================================
+
+    function openAttendanceModal(activityId) {
+      const activity = activities.find(a => a.__backendId === activityId);
+      if (!activity) return;
+      
+      currentActivityForAttendance = activity;
+      document.getElementById('attendance-activity-name').textContent = activity.activity_name;
+      document.getElementById('attendance-modal').classList.remove('hidden');
+      
+      // Reset form
+      capturedAttendancePhoto = null;
+      document.getElementById('attendance-preview').classList.add('hidden');
+      document.getElementById('signature-section').classList.add('hidden');
+      document.getElementById('submit-btn').classList.add('hidden');
+      document.getElementById('start-camera-btn').classList.remove('hidden');
+      document.getElementById('capture-photo-btn').classList.add('hidden');
+      document.getElementById('retake-photo-btn').classList.add('hidden');
+      
+      if (signaturePad) {
+        const canvas = document.getElementById('signature-pad');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
     }
 
-    async function startCamera() {
+    document.getElementById('start-camera-btn').addEventListener('click', async () => {
       try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'user', width: 640, height: 480 } 
+        });
         const video = document.getElementById('attendance-video');
-        if (video) {
-          videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-          video.srcObject = videoStream;
-        }
-      } catch (err) {
-        showToast('Gagal mengakses kamera', 'error');
+        video.srcObject = mediaStream;
+        video.classList.remove('hidden');
+        document.getElementById('start-camera-btn').classList.add('hidden');
+        document.getElementById('capture-photo-btn').classList.remove('hidden');
+        showToast('Kamera berhasil dibuka', 'success');
+      } catch (error) {
+        showToast('Gagal membuka kamera: ' + error.message, 'error');
       }
-    }
+    });
 
-    function stopCamera() {
-      if (videoStream) {
-        videoStream.getTracks().forEach(track => track.stop());
-        videoStream = null;
-      }
-    }
-
-    function initSignatureCanvas() {
-      signatureCanvas = document.getElementById('signature-canvas');
-      if (!signatureCanvas) return;
-      
-      signatureCtx = signatureCanvas.getContext('2d');
-      signatureCtx.strokeStyle = '#000';
-      signatureCtx.lineWidth = 2;
-      signatureCtx.lineCap = 'round';
-      
-      signatureCanvas.addEventListener('mousedown', startDrawing);
-      signatureCanvas.addEventListener('mousemove', draw);
-      signatureCanvas.addEventListener('mouseup', stopDrawing);
-      signatureCanvas.addEventListener('mouseout', stopDrawing);
-      
-      signatureCanvas.addEventListener('touchstart', handleTouchStart);
-      signatureCanvas.addEventListener('touchmove', handleTouchMove);
-      signatureCanvas.addEventListener('touchend', stopDrawing);
-    }
-
-    function startDrawing(e) {
-      isDrawing = true;
-      const rect = signatureCanvas.getBoundingClientRect();
-      signatureCtx.beginPath();
-      signatureCtx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-    }
-
-    function draw(e) {
-      if (!isDrawing) return;
-      const rect = signatureCanvas.getBoundingClientRect();
-      signatureCtx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-      signatureCtx.stroke();
-    }
-
-    function stopDrawing() {
-      isDrawing = false;
-    }
-
-    function handleTouchStart(e) {
-      e.preventDefault();
-      isDrawing = true;
-      const rect = signatureCanvas.getBoundingClientRect();
-      const touch = e.touches[0];
-      signatureCtx.beginPath();
-      signatureCtx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
-    }
-
-    function handleTouchMove(e) {
-      e.preventDefault();
-      if (!isDrawing) return;
-      const rect = signatureCanvas.getBoundingClientRect();
-      const touch = e.touches[0];
-      signatureCtx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
-      signatureCtx.stroke();
-    }
-
-    function clearSignature() {
-      if (signatureCtx && signatureCanvas) {
-        signatureCtx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
-      }
-      capturedSignature = null;
-    }
-
-    function captureAttendancePhoto() {
+    document.getElementById('capture-photo-btn').addEventListener('click', () => {
       const video = document.getElementById('attendance-video');
       const canvas = document.getElementById('attendance-canvas');
       const ctx = canvas.getContext('2d');
@@ -1797,86 +1162,375 @@
       
       capturedAttendancePhoto = canvas.toDataURL('image/jpeg', 0.7);
       
+      // Stop camera
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+      }
+      
+      video.classList.add('hidden');
       document.getElementById('attendance-preview-img').src = capturedAttendancePhoto;
       document.getElementById('attendance-preview').classList.remove('hidden');
+      document.getElementById('capture-photo-btn').classList.add('hidden');
+      document.getElementById('retake-photo-btn').classList.remove('hidden');
       document.getElementById('signature-section').classList.remove('hidden');
       document.getElementById('submit-btn').classList.remove('hidden');
       
-      showToast('Foto berhasil diambil! Silakan tanda tangan.');
+      initSignaturePad();
+      showToast('Foto berhasil diambil! Silakan tanda tangan.', 'success');
+    });
+
+    document.getElementById('retake-photo-btn').addEventListener('click', async () => {
+      capturedAttendancePhoto = null;
+      document.getElementById('attendance-preview').classList.add('hidden');
+      document.getElementById('signature-section').classList.add('hidden');
+      document.getElementById('submit-btn').classList.add('hidden');
+      document.getElementById('retake-photo-btn').classList.add('hidden');
+      document.getElementById('start-camera-btn').classList.remove('hidden');
+    });
+
+    function initSignaturePad() {
+      const canvas = document.getElementById('signature-pad');
+      const ctx = canvas.getContext('2d');
+      
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      
+      let drawing = false;
+      let lastX = 0;
+      let lastY = 0;
+      
+      const startDrawing = (e) => {
+        drawing = true;
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches ? e.touches[0] : e;
+        lastX = touch.clientX - rect.left;
+        lastY = touch.clientY - rect.top;
+      };
+      
+      const draw = (e) => {
+        if (!drawing) return;
+        e.preventDefault();
+        
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches ? e.touches[0] : e;
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        
+        lastX = x;
+        lastY = y;
+      };
+      
+      const stopDrawing = () => {
+        drawing = false;
+      };
+      
+      canvas.addEventListener('mousedown', startDrawing);
+      canvas.addEventListener('mousemove', draw);
+      canvas.addEventListener('mouseup', stopDrawing);
+      canvas.addEventListener('mouseout', stopDrawing);
+      
+      canvas.addEventListener('touchstart', startDrawing);
+      canvas.addEventListener('touchmove', draw);
+      canvas.addEventListener('touchend', stopDrawing);
     }
 
-    async function submitAttendance() {
-      if (!capturedAttendancePhoto) {
-        showToast('Ambil foto terlebih dahulu', 'error');
-        return;
-      }
-
-      const canvas = document.getElementById('signature-canvas');
-      if (!canvas) {
-        showToast('Canvas tanda tangan tidak tersedia', 'error');
-        return;
-      }
-
+    document.getElementById('clear-signature-btn').addEventListener('click', () => {
+      const canvas = document.getElementById('signature-pad');
       const ctx = canvas.getContext('2d');
-      const signatureData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const isSignatureEmpty = !signatureData.data.some(channel => channel !== 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
+
+    document.getElementById('submit-attendance-btn').addEventListener('click', async () => {
+      if (!capturedAttendancePhoto) {
+        showToast('Silakan ambil foto terlebih dahulu', 'error');
+        return;
+      }
       
-      if (isSignatureEmpty) {
-        showToast('Silakan buat tanda tangan terlebih dahulu', 'error');
+      const canvas = document.getElementById('signature-pad');
+      const signatureData = canvas.toDataURL('image/png');
+      
+      // Check if signature is empty
+      const ctx = canvas.getContext('2d');
+      const pixelData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      const isEmpty = !Array.from(pixelData).some(channel => channel !== 0);
+      
+      if (isEmpty) {
+        showToast('Silakan tanda tangan terlebih dahulu', 'error');
         return;
       }
-
-      capturedSignature = canvas.toDataURL('image/png');
-
-      if (attendances.length >= 999) {
-        showToast('Batas maksimum absensi tercapai', 'error');
-        return;
-      }
-
-      const btn = document.getElementById('submit-btn');
+      
+      const btn = document.getElementById('submit-attendance-btn');
       btn.disabled = true;
-      btn.textContent = 'Memproses...';
+      btn.textContent = 'Mengirim...';
 
-      const result = await window.dataSdk.create({
+      const attendanceData = {
         type: 'attendance',
         user_username: currentUser.username,
-        activity_name: selectedActivity,
+        activity_name: currentActivityForAttendance.activity_name,
         attendance_photo: capturedAttendancePhoto,
-        signature: capturedSignature,
+        signature: signatureData,
         attendance_time: new Date().toISOString()
-      });
+      };
+
+      const result = await createData(attendanceData);
 
       if (result.isOk) {
-        showToast('Absensi berhasil!');
-        stopCamera();
-        capturedAttendancePhoto = null;
-        capturedSignature = null;
-        navigate('user-dashboard');
+        showToast('Absensi berhasil disimpan!', 'success');
+        document.getElementById('attendance-modal').classList.add('hidden');
+        
+        // Stop camera if still running
+        if (mediaStream) {
+          mediaStream.getTracks().forEach(track => track.stop());
+          mediaStream = null;
+        }
+        
+        renderUserDashboard(currentUser);
       } else {
-        showToast('Gagal absensi. Silakan coba lagi.', 'error');
-        btn.disabled = false;
-        btn.textContent = '✓ Konfirmasi Absensi';
+        showToast('Gagal menyimpan absensi: ' + (result.error || 'Unknown error'), 'error');
+      }
+
+      btn.disabled = false;
+      btn.textContent = '✅ Submit Absensi';
+    });
+
+    document.getElementById('cancel-attendance-btn').addEventListener('click', () => {
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+      }
+      document.getElementById('attendance-modal').classList.add('hidden');
+    });
+
+    // ========================================
+    // EXPORT & PRINT
+    // ========================================
+
+    document.getElementById('export-csv-btn').addEventListener('click', () => {
+      const filterActivity = document.getElementById('filter-activity').value;
+      let data = attendances;
+      
+      if (filterActivity) {
+        data = attendances.filter(att => att.activity_name === filterActivity);
+      }
+      
+      if (data.length === 0) {
+        showToast('Tidak ada data untuk di-export', 'error');
+        return;
+      }
+      
+      let csv = 'Nama,Kegiatan,Username,Waktu Absen\n';
+      data.forEach(att => {
+        const user = users.find(u => u.username === att.user_username);
+        const userName = user ? user.name : att.user_username;
+        csv += `"${userName}","${att.activity_name}","${att.user_username}","${formatDateTime(att.attendance_time)}"\n`;
+      });
+      
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `absensi_${filterActivity || 'semua'}_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      
+      showToast('CSV berhasil di-download!', 'success');
+    });
+
+    document.getElementById('print-attendance-btn').addEventListener('click', () => {
+      const filterActivity = document.getElementById('filter-activity').value;
+      let data = attendances;
+      
+      if (filterActivity) {
+        data = attendances.filter(att => att.activity_name === filterActivity);
+      }
+      
+      if (data.length === 0) {
+        showToast('Tidak ada data untuk dicetak', 'error');
+        return;
+      }
+      
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+        <head>
+          <title>Daftar Hadir - ${filterActivity || 'Semua Kegiatan'}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            h1 { text-align: center; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+            th { background: #f0f0f0; }
+            @media print {
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>DAFTAR HADIR KEGIATAN</h1>
+          <h2 style="text-align: center;">${filterActivity || 'Semua Kegiatan'}</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>Nama</th>
+                <th>Kegiatan</th>
+                <th>Waktu Absen</th>
+                <th>Tanda Tangan</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.map((att, index) => {
+                const user = users.find(u => u.username === att.user_username);
+                const userName = user ? user.name : att.user_username;
+                return `
+                  <tr>
+                    <td>${index + 1}</td>
+                    <td>${userName}</td>
+                    <td>${att.activity_name}</td>
+                    <td>${formatDateTime(att.attendance_time)}</td>
+                    <td style="width: 150px; height: 60px;"></td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+          <br>
+          <button onclick="window.print()" style="padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 5px; cursor: pointer;">
+            🖨️ Cetak
+          </button>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+    });
+
+    // ========================================
+    // UTILITY FUNCTIONS
+    // ========================================
+
+    function showToast(message, type = 'success', duration = 3000) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      
+      const icons = {
+        success: '✅',
+        error: '❌',
+        info: 'ℹ️',
+        warning: '⚠️'
+      };
+      
+      const colors = {
+        success: 'border-l-4 border-green-500',
+        error: 'border-l-4 border-red-500',
+        info: 'border-l-4 border-blue-500',
+        warning: 'border-l-4 border-yellow-500'
+      };
+      
+      toast.classList.add(colors[type]);
+      toast.innerHTML = `
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">${icons[type]}</span>
+          <p class="text-gray-800 font-medium">${message}</p>
+        </div>
+      `;
+      
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.classList.add('removing');
+        setTimeout(() => toast.remove(), 300);
+      }, duration);
+    }
+
+    function showConfirmDialog(title, message) {
+      return new Promise((resolve) => {
+        const dialog = document.createElement('div');
+        dialog.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop';
+        dialog.innerHTML = `
+          <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">${title}</h2>
+            <p class="text-gray-600 mb-6">${message}</p>
+            <div class="flex gap-4">
+              <button id="confirm-yes" class="flex-1 bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition">
+                Ya, Hapus
+              </button>
+              <button id="confirm-no" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition">
+                Batal
+              </button>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(dialog);
+        
+        document.getElementById('confirm-yes').addEventListener('click', () => {
+          dialog.remove();
+          resolve(true);
+        });
+        
+        document.getElementById('confirm-no').addEventListener('click', () => {
+          dialog.remove();
+          resolve(false);
+        });
+      });
+    }
+
+    function viewImage(base64Data) {
+      const dialog = document.createElement('div');
+      dialog.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop';
+      dialog.innerHTML = `
+        <div class="bg-white rounded-2xl shadow-2xl p-4 max-w-2xl w-full">
+          <img src="${base64Data}" class="w-full rounded-lg">
+          <button onclick="this.closest('.modal-backdrop').remove()" 
+            class="w-full mt-4 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition">
+            Tutup
+          </button>
+        </div>
+      `;
+      
+      document.body.appendChild(dialog);
+    }
+
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('id-ID', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    }
+
+    function formatDateTime(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleString('id-ID', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    function renderCurrentView() {
+      if (isAdmin && currentUser) {
+        renderAdminDashboard();
+      } else if (!isAdmin && currentUser) {
+        renderUserDashboard(currentUser);
       }
     }
 
-    function renderDataTable() {
-      // Placeholder for data table rendering
-    }
-
-    function formatDate(dateStr) {
-      if (!dateStr) return '-';
-      const date = new Date(dateStr);
-      return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-    }
-
-    function formatDateTime(dateStr) {
-      if (!dateStr) return '-';
-      const date = new Date(dateStr);
-      return date.toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-    }
-
-    // Initialize
-    initApp();
+    // ========================================
+    // INIT ON PAGE LOAD
+    // ========================================
+    
+    window.addEventListener('DOMContentLoaded', initApp);
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c18fac8416cfce4',t:'MTc2OTAyMTI0Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c28016141bcd9e8',t:'MTc2OTE3ODgwMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
