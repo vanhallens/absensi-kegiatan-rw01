@@ -19,7 +19,6 @@
     @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     .fade-in { animation: fadeIn 0.3s ease-out; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    /* Loader */
     .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #f59e0b; width: 20px; height: 20px; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
@@ -31,8 +30,7 @@
   <script>
     // ==================== CONFIGURATION ====================
     const Config = {
-      // GANTI DENGAN URL WEB APP GOOGLE ANDA
-      API_URL: "https://script.google.com/macros/s/AKfycbwhuimaOdovCnxbWBJBxiRrHLxnzDP1Lo6YXRWdHviM9h8JsVWpoBfIuTNtbH9KAUr7/exec", 
+      API_URL: "https://script.google.com/macros/s/AKfycbwOHZfREI1wLv-IzgJlttXlqkhhVaAB95r_sW5uZ68n4v7bgK6sLKug6zyUxNPKqK3W/exec", 
       APP_TITLE: 'Absensi Kegiatan RW',
       RW_NAME: 'RW 01'
     };
@@ -48,7 +46,8 @@
         location: null,
         videoStream: null,
         selectedActivityId: null,
-        deleteActivityId: null
+        deleteActivityId: null,
+        signData: null // NEW: Store signature data
       }
     };
 
@@ -116,6 +115,15 @@
         const date = new Date(dateStr);
         return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
       },
+      
+      formatDateTime(dateStr) {
+        if (!dateStr) return '-';
+        const date = new Date(dateStr);
+        return date.toLocaleString('id-ID', { 
+            day: 'numeric', month: 'short', year: 'numeric', 
+            hour: '2-digit', minute: '2-digit' 
+        });
+      },
 
       showToast(message, type = 'success') {
         const existing = document.getElementById('toast');
@@ -129,6 +137,19 @@
         toast.innerHTML = message;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
+      },
+
+      togglePassword(inputId, btnId) {
+        const input = document.getElementById(inputId);
+        const btn = document.getElementById(btnId);
+        
+        if (input.type === "password") {
+          input.type = "text";
+          btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>`;
+        } else {
+          input.type = "password";
+          btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm2 3-2a3 3 0 11-4 0 3 3 0 014 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>`;
+        }
       },
 
       async getLocation() {
@@ -199,6 +220,12 @@
       },
 
       registerPage() {
+        const rtOptions = Array.from({length: 16}, (_, i) => {
+          const num = i + 1;
+          const val = num < 10 ? `0${num}` : `${num}`;
+          return `<option value="RT ${val}">RT ${val}</option>`;
+        }).join('');
+
         return `
           <div class="min-h-full gradient-bg flex items-center justify-center p-4 fade-in">
             <div class="w-full max-w-md">
@@ -209,14 +236,54 @@
               <div class="bg-white rounded-2xl card-shadow p-8">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Daftar Akun</h2>
                 <form id="registerForm" class="space-y-4">
+                  
                   <input type="text" id="regFullName" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Nama Lengkap">
+                  
                   <select id="regRt" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none">
                     <option value="">Pilih RT</option>
-                    ${[1,2,3,4,5,6,7,8,9,10].map(rt => `<option value="RT 0${rt < 10 ? '0' + rt : rt}">RT ${rt < 10 ? '0' + rt : rt}</option>`).join('')}
+                    ${rtOptions}
                   </select>
+
+                  <!-- Jabatan -->
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Jabatan</label>
+                    <select id="regJabatan" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none">
+                      <option value="">Pilih Jabatan</option>
+                      <option value="Ketua RW">Ketua RW</option>
+                      <option value="Ketua RT">Ketua RT</option>
+                      <option value="Ketua PKK">Ketua PKK</option>
+                      <option value="Ketua Dawis">Ketua Dawis</option>
+                      <option value="Ketua Posyandu">Ketua Posyandu</option>
+                      <option value="Bendahara RW">Bendahara RW</option>
+                      <option value="Sekretaris">Sekretaris</option>
+                      <option value="Ketua LMK">Ketua LMK</option>
+                      <option value="Ket. Karang Taruna">Ket. Karang Taruna</option>
+                      <option value="Lainnya">Lainnya</option>
+                    </select>
+                    <!-- Custom Jabatan Input (Hidden initially) -->
+                    <input type="text" id="regJabatanCustom" class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none mt-2 hidden" placeholder="Tulis jabatan Anda...">
+                  </div>
+
                   <input type="tel" id="regPhone" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none" placeholder="No. HP">
+                  
                   <input type="text" id="regUsername" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Username">
-                  <input type="password" id="regPassword" required minlength="6" class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Password (Min 6)">
+                  
+                  <!-- Password Field with Eye Icon -->
+                  <div class="relative">
+                    <input type="password" id="regPassword" required minlength="6" class="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Password (Min 6)">
+                    <button type="button" id="togglePassReg" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 focus:outline-none">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm2 3-2a3 3 0 11-4 0 3 3 0 014 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    </button>
+                  </div>
+                  
+                  <!-- Confirm Password Field with Eye Icon -->
+                  <div class="relative">
+                    <input type="password" id="regConfirmPassword" required class="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Konfirmasi Password">
+                    <button type="button" id="togglePassConfirm" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 focus:outline-none">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm2 3-2a3 3 0 11-4 0 3 3 0 014 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    </button>
+                  </div>
+
                   <button type="submit" id="registerBtn" class="w-full btn-primary text-white font-semibold py-3 rounded-lg transition-all">Daftar</button>
                 </form>
                 <div class="mt-6 text-center">
@@ -229,7 +296,8 @@
 
       userDashboard() {
         const activities = State.allActivities.filter(a => a.activityStatus === 'active');
-        const myAttendances = State.allAttendances.filter(a => a.userId === State.currentUser.id); // Note: assuming ID mapping or filtering by name if ID differs
+        let myAttendances = State.allAttendances.filter(a => a.userId === State.currentUser.id);
+        myAttendances.sort((a, b) => new Date(b.attendanceTime) - new Date(a.attendanceTime));
 
         return `
           <div class="min-h-full bg-gray-50 pb-20">
@@ -242,7 +310,9 @@
                 <button id="logoutBtn" class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-sm">Keluar</button>
               </div>
             </header>
+            
             <main class="max-w-4xl mx-auto p-4 space-y-6 fade-in">
+              
               <div class="grid grid-cols-2 gap-4">
                 <div class="bg-white p-4 rounded-xl card-shadow">
                   <p class="text-2xl font-bold text-gray-800">${activities.length}</p>
@@ -250,43 +320,85 @@
                 </div>
                 <div class="bg-white p-4 rounded-xl card-shadow">
                   <p class="text-2xl font-bold text-gray-800">${myAttendances.length}</p>
-                  <p class="text-sm text-gray-500">Kehadiran Saya</p>
+                  <p class="text-sm text-gray-500">Total Hadir</p>
                 </div>
               </div>
-              
-              <div class="bg-white rounded-xl card-shadow">
-                <div class="p-4 border-b"><h2 class="font-bold text-gray-800">📋 Kegiatan Tersedia</h2></div>
-                <div class="divide-y">
-                  ${activities.length === 0 ? '<p class="p-4 text-center text-gray-500">Tidak ada kegiatan aktif.</p>' : ''}
+
+              <div class="bg-white rounded-xl card-shadow overflow-hidden">
+                <div class="p-4 border-b border-gray-100 bg-gray-50">
+                  <h2 class="font-bold text-gray-800">📋 Kegiatan Tersedia</h2>
+                </div>
+                <div class="divide-y divide-gray-100">
+                  ${activities.length === 0 ? '<div class="p-8 text-center text-gray-500">Tidak ada kegiatan aktif saat ini.</div>' : ''}
                   ${activities.map(act => {
                     const hasAttended = myAttendances.some(a => a.activityId === act.__backendId);
                     return `
-                    <div class="p-4 flex justify-between items-center">
+                    <div class="p-4 flex justify-between items-start hover:bg-gray-50 transition-colors">
                       <div>
                         <h3 class="font-semibold text-gray-800">${act.activityName}</h3>
-                        <p class="text-sm text-gray-500">${Utils.formatDate(act.activityDate)} • ${act.activityTime}</p>
-                        <p class="text-sm text-gray-500">📍 ${act.activityLocation}</p>
+                        <div class="mt-1 space-y-0.5">
+                          <p class="text-sm text-gray-500">📅 ${Utils.formatDate(act.activityDate)} • 🕐 ${act.activityTime}</p>
+                          <p class="text-sm text-gray-500">📍 ${act.activityLocation}</p>
+                        </div>
                       </div>
                       ${hasAttended 
-                        ? '<span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">Hadir</span>' 
-                        : `<button data-attend="${act.__backendId}" class="btn-primary text-white px-3 py-1.5 rounded-lg text-sm">Absen</button>`
+                        ? '<span class="mt-2 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">✓ Sudah Absen</span>' 
+                        : `<button data-attend="${act.__backendId}" class="mt-2 btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm">Absen Sekarang</button>`
                       }
                     </div>`;
                   }).join('')}
                 </div>
               </div>
 
-              <div class="bg-white rounded-xl card-shadow">
-                <div class="p-4 border-b"><h2 class="font-bold text-gray-800">📝 Riwayat</h2></div>
-                <div class="divide-y max-h-60 overflow-y-auto">
-                   ${myAttendances.map(att => {
-                     const act = State.allActivities.find(a => a.__backendId === att.activityId);
-                     return `
-                     <div class="p-4 text-sm">
-                       <p class="font-semibold">${act?.activityName || 'Kegiatan Dihapus'}</p>
-                       <p class="text-gray-500">🕐 ${att.attendanceTime}</p>
-                     </div>`;
-                   }).join('')}
+              <div class="bg-white rounded-xl card-shadow overflow-hidden">
+                <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                  <h2 class="font-bold text-gray-800">📝 Riwayat Kehadiran Saya</h2>
+                  <span class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium">${myAttendances.length} Catatan</span>
+                </div>
+                
+                <div class="max-h-[500px] overflow-y-auto">
+                  ${myAttendances.length === 0 ? `
+                    <div class="p-10 text-center text-gray-400">
+                      <svg class="w-16 h-16 mx-auto mb-2 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                      <p>Belum ada riwayat kehadiran</p>
+                    </div>
+                  ` : ''}
+                  
+                  <div class="divide-y divide-gray-100">
+                    ${myAttendances.map(att => {
+                      const act = State.allActivities.find(a => a.__backendId === att.activityId);
+                      const actName = act ? act.activityName : 'Kegiatan tidak tersedia';
+                      const dateObj = new Date(att.attendanceTime);
+                      const dateStr = dateObj.toLocaleDateString('id-ID', {day:'numeric', month:'short'});
+                      const timeStr = dateObj.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+
+                      return `
+                      <div class="p-4 flex gap-4 hover:bg-blue-50/30 transition-colors cursor-default">
+                        <div class="flex-shrink-0">
+                           ${att.photoData 
+                             ? `<img src="${att.photoData}" class="w-16 h-16 rounded-lg object-cover border border-gray-200 shadow-sm" onclick="window.open('${att.photoData}')">` 
+                             : `<div class="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 text-xs">No Foto</div>`
+                           }
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <h3 class="font-semibold text-gray-900 truncate">${actName}</h3>
+                          <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1 text-sm">
+                            <span class="text-gray-500 flex items-center gap-1">
+                              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                              ${dateStr}
+                            </span>
+                            <span class="text-gray-500 flex items-center gap-1">
+                              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                              ${timeStr}
+                            </span>
+                          </div>
+                          <div class="mt-2">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Hadir</span>
+                          </div>
+                        </div>
+                      </div>`;
+                    }).join('')}
+                  </div>
                 </div>
               </div>
             </main>
@@ -300,23 +412,47 @@
             <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
               <div class="p-4 border-b flex justify-between">
                 <h3 class="font-bold text-lg">📸 Absensi</h3>
-                <button id="closeAttendanceModal" class="text-gray-500">&times;</button>
+                <button id="closeAttendanceModal" class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
               </div>
               <div class="p-4 space-y-4">
-                <div class="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
-                  <video id="cameraVideo" autoplay playsinline class="w-full h-full object-cover"></video>
-                  <img id="capturedImage" class="w-full h-full object-cover hidden">
+                
+                <!-- Camera Section -->
+                <div>
+                  <p class="text-sm font-medium text-gray-700 mb-1">Foto Wajah</p>
+                  <div class="relative bg-gray-900 rounded-lg overflow-hidden aspect-video shadow-inner">
+                    <video id="cameraVideo" autoplay playsinline class="w-full h-full object-cover"></video>
+                    <img id="capturedImage" class="w-full h-full object-cover hidden">
+                  </div>
+                  <div class="flex gap-2 mt-2">
+                    <button id="captureBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-medium transition-colors">📷 Ambil Foto</button>
+                    <button id="retakeBtn" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2.5 rounded-lg font-medium transition-colors hidden">🔄 Ulangi Foto</button>
+                  </div>
                 </div>
-                <div class="flex gap-2">
-                  <button id="captureBtn" class="flex-1 bg-blue-600 text-white py-2 rounded font-medium">📷 Ambil Foto</button>
-                  <button id="retakeBtn" class="flex-1 bg-gray-600 text-white py-2 rounded font-medium hidden">🔄 Ulangi</button>
+
+                <!-- NEW: Signature Section -->
+                <div>
+                  <div class="flex justify-between items-center mb-1">
+                    <p class="text-sm font-medium text-gray-700">Tanda Tangan</p>
+                    <span id="signStatus" class="text-xs text-red-500 hidden">Belum tanda tangan</span>
+                  </div>
+                  <div class="relative border-2 border-dashed border-gray-300 rounded-lg bg-white overflow-hidden touch-none">
+                    <canvas id="signCanvas" height="150" class="w-full h-32 bg-white"></canvas>
+                    <p class="absolute bottom-2 right-2 text-gray-300 text-xs pointer-events-none select-none">Area Tanda Tangan</p>
+                  </div>
+                  <div class="flex justify-end mt-1">
+                    <button type="button" id="clearSign" class="text-xs text-red-500 font-medium hover:text-red-700 underline">Hapus Tanda Tangan</button>
+                  </div>
                 </div>
+
+                <!-- Location Section -->
                 <div>
                   <p class="text-sm font-medium text-gray-700 mb-1">Lokasi GPS</p>
-                  <div id="locationStatus" class="bg-gray-100 p-2 rounded text-sm text-gray-600">⏳ Mendeteksi...</div>
-                  <button id="refreshLocation" class="text-xs text-blue-600 mt-1">Refresh Lokasi</button>
+                  <div id="locationStatus" class="bg-gray-100 p-3 rounded-lg text-sm text-gray-600 min-h-[2.5rem] flex items-center">⏳ Mendeteksi lokasi...</div>
+                  <button id="refreshLocation" class="text-xs text-blue-600 mt-2 font-medium hover:underline">Refresh Lokasi</button>
                 </div>
-                <button id="submitAttendance" disabled class="w-full btn-primary text-white py-3 rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed">Kirim Absensi</button>
+
+                <!-- Submit Button -->
+                <button id="submitAttendance" disabled class="w-full btn-primary text-white py-3 rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg">✓ Kirim Absensi</button>
               </div>
             </div>
           </div>`;
@@ -341,7 +477,6 @@
             </nav>
 
             <main class="max-w-6xl mx-auto p-4 fade-in">
-              <!-- Dashboard Tab -->
               <div id="tab-dashboard" class="tab-content">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div class="bg-white p-6 rounded-xl card-shadow">
@@ -377,7 +512,6 @@
                 </div>
               </div>
 
-              <!-- Activities Tab -->
               <div id="tab-activities" class="tab-content hidden">
                 <div class="bg-white rounded-xl card-shadow overflow-hidden">
                   <div class="p-4 border-b flex justify-between items-center">
@@ -405,7 +539,6 @@
                 </div>
               </div>
 
-              <!-- Report Tab -->
               <div id="tab-report" class="tab-content hidden">
                 <div class="bg-white rounded-xl card-shadow p-4">
                   <h2 class="font-bold mb-4">Rekap Laporan</h2>
@@ -470,7 +603,6 @@
     const App = {
       async init() {
         try {
-          // Check local storage for session
           const session = localStorage.getItem('rw_session');
           if (session) {
             State.currentUser = JSON.parse(session);
@@ -483,24 +615,38 @@
       async loadData() {
         try {
           await Promise.all([Api.getActivities(), Api.getAttendances()]);
-          UI.render(); // Re-render after data load
+          UI.render(); 
         } catch (e) {
           console.error("Gagal memuat data", e);
         }
       },
 
       attachEvents() {
-        // Forms
         document.getElementById('loginForm')?.addEventListener('submit', App.handlers.login);
         document.getElementById('registerForm')?.addEventListener('submit', App.handlers.register);
         document.getElementById('activityForm')?.addEventListener('submit', App.handlers.addActivity);
 
-        // Navigation
         document.getElementById('goToRegister')?.addEventListener('click', () => { State.currentView = 'register'; UI.render(); });
         document.getElementById('goToLogin')?.addEventListener('click', () => { State.currentView = 'login'; UI.render(); });
         document.getElementById('logoutBtn')?.addEventListener('click', App.handlers.logout);
 
-        // Tabs (Admin)
+        // Password Toggles
+        document.getElementById('togglePassReg')?.addEventListener('click', () => Utils.togglePassword('regPassword', 'togglePassReg'));
+        document.getElementById('togglePassConfirm')?.addEventListener('click', () => Utils.togglePassword('regConfirmPassword', 'togglePassConfirm'));
+
+        const jabatanSelect = document.getElementById('regJabatan');
+        const jabatanCustom = document.getElementById('regJabatanCustom');
+        if(jabatanSelect && jabatanCustom) {
+          jabatanSelect.addEventListener('change', (e) => {
+            if(e.target.value === 'Lainnya') {
+              jabatanCustom.classList.remove('hidden');
+              jabatanCustom.focus();
+            } else {
+              jabatanCustom.classList.add('hidden');
+            }
+          });
+        }
+
         document.querySelectorAll('.admin-tab').forEach(tab => {
           tab.addEventListener('click', (e) => {
             const target = e.target.dataset.tab;
@@ -510,13 +656,11 @@
             });
             e.target.classList.remove('border-transparent');
             e.target.classList.add('border-amber-500', 'text-amber-600');
-            
             document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
             document.getElementById(`tab-${target}`).classList.remove('hidden');
           });
         });
 
-        // Modals
         document.getElementById('addActivityBtn')?.addEventListener('click', () => {
           document.getElementById('activityModal').classList.remove('hidden');
         });
@@ -525,7 +669,6 @@
           document.getElementById('activityForm').reset();
         });
 
-        // Activity Actions
         document.querySelectorAll('[data-toggle]').forEach(btn => {
           btn.addEventListener('click', async () => {
             const btnOrig = btn.textContent;
@@ -552,7 +695,6 @@
           await App.loadData();
         });
 
-        // Attendance Flow
         document.querySelectorAll('[data-attend]').forEach(btn => {
           btn.addEventListener('click', () => App.handlers.openAttendanceModal(btn.dataset.attend));
         });
@@ -567,11 +709,74 @@
           State.temp.capturedPhoto = null;
           App.updateSubmitBtn();
         });
-        
+
+        // Signature Events
+        const canvas = document.getElementById('signCanvas');
+        if(canvas) {
+          const ctx = canvas.getContext('2d');
+          let isDrawing = false;
+          let lastX = 0;
+          let lastY = 0;
+
+          // Helper to get position
+          const getPos = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+              x: clientX - rect.left,
+              y: clientY - rect.top
+            };
+          };
+
+          const startDraw = (e) => {
+            e.preventDefault();
+            isDrawing = true;
+            const pos = getPos(e);
+            lastX = pos.x;
+            lastY = pos.y;
+          };
+
+          const draw = (e) => {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const pos = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            lastX = pos.x;
+            lastY = pos.y;
+          };
+
+          const stopDraw = () => {
+            isDrawing = false;
+          };
+
+          // Mouse Events
+          canvas.addEventListener('mousedown', startDraw);
+          canvas.addEventListener('mousemove', draw);
+          canvas.addEventListener('mouseup', stopDraw);
+          canvas.addEventListener('mouseleave', stopDraw);
+
+          // Touch Events (Mobile)
+          canvas.addEventListener('touchstart', startDraw, { passive: false });
+          canvas.addEventListener('touchmove', draw, { passive: false });
+          canvas.addEventListener('touchend', stopDraw);
+
+          // Clear Button
+          document.getElementById('clearSign')?.addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            State.temp.signData = null;
+            App.updateSubmitBtn();
+          });
+        }
+
         document.getElementById('refreshLocation')?.addEventListener('click', App.handlers.getLocation);
         document.getElementById('submitAttendance')?.addEventListener('click', App.handlers.submitAttendance);
 
-        // Reports
         document.getElementById('generateReport')?.addEventListener('click', App.handlers.generateReport);
         document.getElementById('exportPdf')?.addEventListener('click', App.handlers.exportPdf);
       },
@@ -579,7 +784,8 @@
       updateSubmitBtn() {
         const btn = document.getElementById('submitAttendance');
         if (btn) {
-          btn.disabled = !(State.temp.capturedPhoto && State.temp.location);
+          // UPDATE: Require Photo, Location AND Signature
+          btn.disabled = !(State.temp.capturedPhoto && State.temp.location && State.temp.signData);
         }
       },
 
@@ -593,14 +799,12 @@
           btn.disabled = true; btn.innerHTML = '<div class="loader mx-auto"></div>';
 
           try {
-            // Special admin bypass for demo or if database is empty
             let user;
             if(userIn === 'admin' && passIn === 'admin123') {
                user = { id: 'admin', username: 'admin', fullName: 'Administrator', role: 'admin' };
             } else {
                user = await Api.login(userIn, passIn);
             }
-
             State.currentUser = user;
             localStorage.setItem('rw_session', JSON.stringify(user));
             await App.loadData();
@@ -612,13 +816,31 @@
 
         async register(e) {
           e.preventDefault();
+          
+          const jabatanSelect = document.getElementById('regJabatan').value;
+          const jabatanCustom = document.getElementById('regJabatanCustom').value;
+          const finalJabatan = (jabatanSelect === 'Lainnya') ? jabatanCustom : jabatanSelect;
+
+          if (!finalJabatan) {
+            Utils.showToast('Mohon pilih atau isi jabatan', 'error');
+            return;
+          }
+
+          const pass = document.getElementById('regPassword').value;
+          const confirm = document.getElementById('regConfirmPassword').value;
+          if (pass !== confirm) {
+            Utils.showToast('Password dan konfirmasi password tidak cocok', 'error');
+            return;
+          }
+
           const btn = document.getElementById('registerBtn');
           const data = {
             fullName: document.getElementById('regFullName').value,
             rt: document.getElementById('regRt').value,
+            jabatan: finalJabatan, 
             phone: document.getElementById('regPhone').value,
             username: document.getElementById('regUsername').value,
-            password: document.getElementById('regPassword').value
+            password: pass
           };
 
           btn.disabled = true; btn.innerHTML = '<div class="loader mx-auto"></div>';
@@ -666,19 +888,24 @@
           State.temp.selectedActivityId = actId;
           State.temp.capturedPhoto = null;
           State.temp.location = null;
+          State.temp.signData = null; // Reset signature
           
           const modal = document.getElementById('attendanceModal');
           modal.classList.remove('hidden');
           
-          // Reset view
           document.getElementById('capturedImage').classList.add('hidden');
           document.getElementById('cameraVideo').classList.remove('hidden');
           document.getElementById('captureBtn').classList.remove('hidden');
           document.getElementById('retakeBtn').classList.add('hidden');
           document.getElementById('locationStatus').textContent = '⏳ Mendeteksi lokasi...';
           document.getElementById('submitAttendance').disabled = true;
+          
+          // Reset Canvas
+          const canvas = document.getElementById('signCanvas');
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          document.getElementById('signStatus').classList.add('hidden');
 
-          // Start Camera
           try {
             if (State.temp.videoStream) State.temp.videoStream.getTracks().forEach(track => track.stop());
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
@@ -688,7 +915,6 @@
             Utils.showToast('Gagal akses kamera', 'error');
           }
 
-          // Get Location
           App.handlers.getLocation();
         },
 
@@ -707,7 +933,6 @@
           canvas.height = video.videoHeight;
           canvas.getContext('2d').drawImage(video, 0, 0);
           
-          // Resize to limit base64 length for Google Sheets (approx 300x300)
           const resizedCanvas = document.createElement('canvas');
           const maxSize = 300;
           let width = canvas.width;
@@ -726,7 +951,6 @@
           document.getElementById('captureBtn').classList.add('hidden');
           document.getElementById('retakeBtn').classList.remove('hidden');
           
-          // Stop stream to save battery
           State.temp.videoStream.getTracks().forEach(track => track.stop());
           
           App.updateSubmitBtn();
@@ -747,7 +971,12 @@
         },
 
         async submitAttendance() {
-          if (!State.temp.capturedPhoto || !State.temp.location) return;
+          // Check Signature
+          const canvas = document.getElementById('signCanvas');
+          if(!canvas.toDataURL()) {
+             Utils.showToast('Mohon beri tanda tangan', 'error');
+             return;
+          }
           
           const btn = document.getElementById('submitAttendance');
           btn.disabled = true; btn.textContent = 'Mengirim...';
@@ -755,15 +984,16 @@
           try {
             await Api.submitAttendance({
               activityId: State.temp.selectedActivityId,
-              userId: State.currentUser.id, // Or username if ID differs
+              userId: State.currentUser.id, 
               userName: State.currentUser.fullName,
               userRt: State.currentUser.rt,
               photoData: State.temp.capturedPhoto,
-              location: State.temp.location
+              location: State.temp.location,
+              signData: canvas.toDataURL() // Send signature
             });
             Utils.showToast('Absensi Berhasil!');
             App.handlers.closeAttendanceModal();
-            await App.loadData(); // Refresh history
+            await App.loadData(); 
           } catch (err) {
             btn.disabled = false; btn.textContent = 'Kirim Absensi';
           }
@@ -801,7 +1031,9 @@
       }
     };
 
-    // Initialize App
+    // Init Signature Logic check inside Attach Events
+    // Note: Signature canvas logic is dynamically added in attachEvents
+    
     App.init();
   </script>
 </body>
