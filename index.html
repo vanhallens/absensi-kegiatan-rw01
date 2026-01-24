@@ -19,6 +19,7 @@
     @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     .fade-in { animation: fadeIn 0.3s ease-out; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    /* Loader */
     .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #f59e0b; width: 20px; height: 20px; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
@@ -30,6 +31,7 @@
   <script>
     // ==================== CONFIGURATION ====================
     const Config = {
+      // LATEST API URL
       API_URL: "https://script.google.com/macros/s/AKfycbwOHZfREI1wLv-IzgJlttXlqkhhVaAB95r_sW5uZ68n4v7bgK6sLKug6zyUxNPKqK3W/exec", 
       APP_TITLE: 'Absensi Kegiatan RW',
       RW_NAME: 'RW 01'
@@ -43,11 +45,12 @@
       allAttendances: [],
       temp: {
         capturedPhoto: null,
+        signatureData: null,
         location: null,
         videoStream: null,
         selectedActivityId: null,
         deleteActivityId: null,
-        signData: null // NEW: Store signature data
+        hasSignature: false // New flag to track if user has signed
       }
     };
 
@@ -142,7 +145,6 @@
       togglePassword(inputId, btnId) {
         const input = document.getElementById(inputId);
         const btn = document.getElementById(btnId);
-        
         if (input.type === "password") {
           input.type = "text";
           btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>`;
@@ -418,7 +420,7 @@
                 
                 <!-- Camera Section -->
                 <div>
-                  <p class="text-sm font-medium text-gray-700 mb-1">Foto Wajah</p>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">Foto Wajah</label>
                   <div class="relative bg-gray-900 rounded-lg overflow-hidden aspect-video shadow-inner">
                     <video id="cameraVideo" autoplay playsinline class="w-full h-full object-cover"></video>
                     <img id="capturedImage" class="w-full h-full object-cover hidden">
@@ -429,29 +431,23 @@
                   </div>
                 </div>
 
-                <!-- NEW: Signature Section -->
+                <!-- Signature Section -->
                 <div>
-                  <div class="flex justify-between items-center mb-1">
-                    <p class="text-sm font-medium text-gray-700">Tanda Tangan</p>
-                    <span id="signStatus" class="text-xs text-red-500 hidden">Belum tanda tangan</span>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">Tanda Tangan</label>
+                  <div class="relative border-2 border-gray-300 rounded-lg bg-white overflow-hidden touch-none" id="sigContainer" style="touch-action: none;">
+                    <canvas id="signatureCanvas" class="w-full h-32 rounded-lg cursor-crosshair"></canvas>
+                    <button type="button" id="clearSignature" class="absolute top-2 right-2 text-xs bg-red-50 text-red-600 border border-red-200 px-2 py-1 rounded hover:bg-red-100">Hapus</button>
                   </div>
-                  <div class="relative border-2 border-dashed border-gray-300 rounded-lg bg-white overflow-hidden touch-none">
-                    <canvas id="signCanvas" height="150" class="w-full h-32 bg-white"></canvas>
-                    <p class="absolute bottom-2 right-2 text-gray-300 text-xs pointer-events-none select-none">Area Tanda Tangan</p>
-                  </div>
-                  <div class="flex justify-end mt-1">
-                    <button type="button" id="clearSign" class="text-xs text-red-500 font-medium hover:text-red-700 underline">Hapus Tanda Tangan</button>
-                  </div>
+                  <p class="text-xs text-gray-400 mt-1">Silakan tanda tangan di kotak di atas</p>
                 </div>
-
+                
                 <!-- Location Section -->
                 <div>
-                  <p class="text-sm font-medium text-gray-700 mb-1">Lokasi GPS</p>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Lokasi GPS</label>
                   <div id="locationStatus" class="bg-gray-100 p-3 rounded-lg text-sm text-gray-600 min-h-[2.5rem] flex items-center">⏳ Mendeteksi lokasi...</div>
                   <button id="refreshLocation" class="text-xs text-blue-600 mt-2 font-medium hover:underline">Refresh Lokasi</button>
                 </div>
-
-                <!-- Submit Button -->
+                
                 <button id="submitAttendance" disabled class="w-full btn-primary text-white py-3 rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg">✓ Kirim Absensi</button>
               </div>
             </div>
@@ -600,7 +596,6 @@
     };
 
     // ==================== MAIN APP CONTROLLER ====================
-        // ==================== MAIN APP CONTROLLER ====================
     const App = {
       async init() {
         try {
@@ -723,7 +718,6 @@
         document.getElementById('exportPdf')?.addEventListener('click', App.handlers.exportPdf);
       },
 
-      // UPDATED: Robust function to check and enable/disable button
       updateSubmitBtn() {
         const btn = document.getElementById('submitAttendance');
         if (btn) {
@@ -733,9 +727,6 @@
           const hasSig = State.temp.hasSignature === true;
 
           const isComplete = hasPhoto && hasLoc && hasSig;
-
-          // Debugging (optional, remove in production)
-          console.log("Update Button Check:", { hasPhoto, hasLoc, hasSig, isComplete });
 
           btn.disabled = !isComplete;
         }
@@ -866,7 +857,7 @@
             Utils.showToast('Gagal akses kamera', 'error');
           }
 
-          // Initialize Signature Pad immediately (without timeout to ensure it's ready)
+          // Initialize Signature Pad immediately
           App.handlers.initSignaturePad();
 
           // Get Location
@@ -908,7 +899,6 @@
           
           State.temp.videoStream.getTracks().forEach(track => track.stop());
           
-          // Update button state immediately
           App.updateSubmitBtn();
         },
 
@@ -1055,4 +1045,3 @@
   </script>
 </body>
 </html>
-
