@@ -600,6 +600,7 @@
     };
 
     // ==================== MAIN APP CONTROLLER ====================
+        // ==================== MAIN APP CONTROLLER ====================
     const App = {
       async init() {
         try {
@@ -647,6 +648,7 @@
           });
         }
 
+        // Admin Tabs
         document.querySelectorAll('.admin-tab').forEach(tab => {
           tab.addEventListener('click', (e) => {
             const target = e.target.dataset.tab;
@@ -661,6 +663,7 @@
           });
         });
 
+        // Modals
         document.getElementById('addActivityBtn')?.addEventListener('click', () => {
           document.getElementById('activityModal').classList.remove('hidden');
         });
@@ -695,6 +698,7 @@
           await App.loadData();
         });
 
+        // Attendance Flow
         document.querySelectorAll('[data-attend]').forEach(btn => {
           btn.addEventListener('click', () => App.handlers.openAttendanceModal(btn.dataset.attend));
         });
@@ -709,83 +713,31 @@
           State.temp.capturedPhoto = null;
           App.updateSubmitBtn();
         });
-
-        // Signature Events
-        const canvas = document.getElementById('signCanvas');
-        if(canvas) {
-          const ctx = canvas.getContext('2d');
-          let isDrawing = false;
-          let lastX = 0;
-          let lastY = 0;
-
-          // Helper to get position
-          const getPos = (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            return {
-              x: clientX - rect.left,
-              y: clientY - rect.top
-            };
-          };
-
-          const startDraw = (e) => {
-            e.preventDefault();
-            isDrawing = true;
-            const pos = getPos(e);
-            lastX = pos.x;
-            lastY = pos.y;
-          };
-
-          const draw = (e) => {
-            if (!isDrawing) return;
-            e.preventDefault();
-            const pos = getPos(e);
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(pos.x, pos.y);
-            ctx.strokeStyle = "#000";
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            lastX = pos.x;
-            lastY = pos.y;
-          };
-
-          const stopDraw = () => {
-            isDrawing = false;
-          };
-
-          // Mouse Events
-          canvas.addEventListener('mousedown', startDraw);
-          canvas.addEventListener('mousemove', draw);
-          canvas.addEventListener('mouseup', stopDraw);
-          canvas.addEventListener('mouseleave', stopDraw);
-
-          // Touch Events (Mobile)
-          canvas.addEventListener('touchstart', startDraw, { passive: false });
-          canvas.addEventListener('touchmove', draw, { passive: false });
-          canvas.addEventListener('touchend', stopDraw);
-
-          // Clear Button
-          document.getElementById('clearSign')?.addEventListener('click', () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            State.temp.signData = null;
-            App.updateSubmitBtn();
-          });
-        }
-
+        
+        document.getElementById('clearSignature')?.addEventListener('click', App.handlers.clearSignature);
         document.getElementById('refreshLocation')?.addEventListener('click', App.handlers.getLocation);
         document.getElementById('submitAttendance')?.addEventListener('click', App.handlers.submitAttendance);
 
+        // Reports
         document.getElementById('generateReport')?.addEventListener('click', App.handlers.generateReport);
         document.getElementById('exportPdf')?.addEventListener('click', App.handlers.exportPdf);
       },
 
+      // UPDATED: Robust function to check and enable/disable button
       updateSubmitBtn() {
         const btn = document.getElementById('submitAttendance');
         if (btn) {
-          // UPDATE: Require Photo, Location AND Signature
-          btn.disabled = !(State.temp.capturedPhoto && State.temp.location && State.temp.signData);
+          // Check all conditions individually
+          const hasPhoto = !!State.temp.capturedPhoto;
+          const hasLoc = !!State.temp.location;
+          const hasSig = State.temp.hasSignature === true;
+
+          const isComplete = hasPhoto && hasLoc && hasSig;
+
+          // Debugging (optional, remove in production)
+          console.log("Update Button Check:", { hasPhoto, hasLoc, hasSig, isComplete });
+
+          btn.disabled = !isComplete;
         }
       },
 
@@ -887,25 +839,24 @@
         async openAttendanceModal(actId) {
           State.temp.selectedActivityId = actId;
           State.temp.capturedPhoto = null;
+          State.temp.signatureData = null;
+          State.temp.hasSignature = false; // Reset signature flag
           State.temp.location = null;
-          State.temp.signData = null; // Reset signature
           
           const modal = document.getElementById('attendanceModal');
           modal.classList.remove('hidden');
           
+          // Reset UI
           document.getElementById('capturedImage').classList.add('hidden');
           document.getElementById('cameraVideo').classList.remove('hidden');
           document.getElementById('captureBtn').classList.remove('hidden');
           document.getElementById('retakeBtn').classList.add('hidden');
           document.getElementById('locationStatus').textContent = '⏳ Mendeteksi lokasi...';
-          document.getElementById('submitAttendance').disabled = true;
           
-          // Reset Canvas
-          const canvas = document.getElementById('signCanvas');
-          const ctx = canvas.getContext('2d');
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          document.getElementById('signStatus').classList.add('hidden');
+          // Force button disabled initially
+          App.updateSubmitBtn();
 
+          // Start Camera
           try {
             if (State.temp.videoStream) State.temp.videoStream.getTracks().forEach(track => track.stop());
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
@@ -915,6 +866,10 @@
             Utils.showToast('Gagal akses kamera', 'error');
           }
 
+          // Initialize Signature Pad immediately (without timeout to ensure it's ready)
+          App.handlers.initSignaturePad();
+
+          // Get Location
           App.handlers.getLocation();
         },
 
@@ -953,7 +908,76 @@
           
           State.temp.videoStream.getTracks().forEach(track => track.stop());
           
+          // Update button state immediately
           App.updateSubmitBtn();
+        },
+
+        initSignaturePad() {
+          const canvas = document.getElementById('signatureCanvas');
+          if(!canvas) return;
+          const container = document.getElementById('sigContainer');
+          
+          // Set resolution strictly
+          canvas.width = container.offsetWidth;
+          canvas.height = 150; 
+          
+          const ctx = canvas.getContext('2d');
+          ctx.strokeStyle = "#000000";
+          ctx.lineWidth = 2;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+
+          const getPos = (e) => {
+             const rect = canvas.getBoundingClientRect();
+             // Check for Touch
+             if(e.touches && e.touches.length > 0) {
+               return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+             }
+             // Fallback for Mouse
+             return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+          };
+
+          const start = (e) => {
+            e.preventDefault();
+            const pos = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+          };
+
+          const move = (e) => {
+            e.preventDefault();
+            const pos = getPos(e);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            
+            // IMPORTANT: Force update state and button here
+            State.temp.hasSignature = true;
+            App.updateSubmitBtn();
+          };
+
+          const end = () => { };
+
+          // Mouse Events
+          canvas.addEventListener("mousedown", start);
+          canvas.addEventListener("mousemove", move);
+          canvas.addEventListener("mouseup", end);
+          canvas.addEventListener("mouseout", end);
+
+          // Touch Events
+          canvas.addEventListener("touchstart", start);
+          canvas.addEventListener("touchmove", move);
+          canvas.addEventListener("touchend", end);
+        },
+
+        clearSignature() {
+          const canvas = document.getElementById('signatureCanvas');
+          if(canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Reset state
+            State.temp.hasSignature = false;
+            App.updateSubmitBtn();
+          }
         },
 
         async getLocation() {
@@ -967,16 +991,12 @@
             status.textContent = `❌ ${err}`;
             State.temp.location = null;
           }
+          // Force update button state after location fetch
           App.updateSubmitBtn();
         },
 
         async submitAttendance() {
-          // Check Signature
-          const canvas = document.getElementById('signCanvas');
-          if(!canvas.toDataURL()) {
-             Utils.showToast('Mohon beri tanda tangan', 'error');
-             return;
-          }
+          if (!State.temp.capturedPhoto || !State.temp.location || !State.temp.hasSignature) return;
           
           const btn = document.getElementById('submitAttendance');
           btn.disabled = true; btn.textContent = 'Mengirim...';
@@ -988,8 +1008,8 @@
               userName: State.currentUser.fullName,
               userRt: State.currentUser.rt,
               photoData: State.temp.capturedPhoto,
-              location: State.temp.location,
-              signData: canvas.toDataURL() // Send signature
+              signatureData: document.getElementById('signatureCanvas').toDataURL(),
+              location: State.temp.location
             });
             Utils.showToast('Absensi Berhasil!');
             App.handlers.closeAttendanceModal();
@@ -1031,10 +1051,8 @@
       }
     };
 
-    // Init Signature Logic check inside Attach Events
-    // Note: Signature canvas logic is dynamically added in attachEvents
-    
     App.init();
   </script>
 </body>
 </html>
+
