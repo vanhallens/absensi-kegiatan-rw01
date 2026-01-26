@@ -2,7 +2,7 @@
 <html lang="id" class="h-full">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Absensi Kegiatan RW</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -19,7 +19,6 @@
     @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     .fade-in { animation: fadeIn 0.3s ease-out; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    /* Loader */
     .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #f59e0b; width: 20px; height: 20px; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
@@ -31,9 +30,7 @@
   <script>
     // ==================== CONFIGURATION ====================
     const Config = {
-      // LATEST API URL
       API_URL: "https://script.google.com/macros/s/AKfycbwZZH4tbP0qK59T7b_o4I9Ux0vpVZwSZn5ZEgcB0ejKgUG3d4VVZgWaSceY6u2Id36O/exec", 
-      
       APP_TITLE: 'Absensi Kegiatan RW',
       RW_NAME: 'RW 01'
     };
@@ -59,18 +56,13 @@
     const Api = {
       async request(action, data = {}) {
         try {
-          // FIX: Using text/plain to avoid CORS Preflight issues with Google Apps Script
           const response = await fetch(Config.API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain' },
             body: JSON.stringify({ action, data })
           });
-          
           if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-          
           const result = await response.json();
-          
-          // Assuming standard GAS response wrapper: { status: 'success', data: ... }
           if (result.status === 'success') return result.data;
           else throw new Error(result.message || 'Terjadi kesalahan pada server');
         } catch (error) {
@@ -80,42 +72,14 @@
         }
       },
 
-      async login(username, password) {
-        return await Api.request('login', { username, password });
-      },
-
-      async register(formData) {
-        return await Api.request('register', formData);
-      },
-
-      async getActivities() {
-        State.allActivities = await Api.request('getActivities');
-      },
-
-      async getAttendances() {
-        State.allAttendances = await Api.request('getAttendances');
-      },
-
-      async addActivity(formData) {
-        return await Api.request('addActivity', {
-          name: formData.name,
-          date: formData.date,
-          time: formData.time,
-          location: formData.location
-        });
-      },
-
-      async toggleActivity(id) {
-        return await Api.request('toggleActivity', { id });
-      },
-
-      async deleteActivity(id) {
-        return await Api.request('deleteActivity', { id });
-      },
-
-      async submitAttendance(attendanceData) {
-        return await Api.request('submitAttendance', attendanceData);
-      }
+      async login(username, password) { return await Api.request('login', { username, password }); },
+      async register(formData) { return await Api.request('register', formData); },
+      async getActivities() { State.allActivities = await Api.request('getActivities'); },
+      async getAttendances() { State.allAttendances = await Api.request('getAttendances'); },
+      async addActivity(formData) { return await Api.request('addActivity', formData); },
+      async toggleActivity(id) { return await Api.request('toggleActivity', { id }); },
+      async deleteActivity(id) { return await Api.request('deleteActivity', { id }); },
+      async submitAttendance(attendanceData) { return await Api.request('submitAttendance', attendanceData); }
     };
 
     // ==================== UTILITIES ====================
@@ -123,32 +87,24 @@
       formatDate(dateStr) {
         if (!dateStr) return '-';
         const date = new Date(dateStr);
-        if (isNaN(date.getTime())) return dateStr; // Return raw if invalid
+        if (isNaN(date.getTime())) return dateStr; 
         return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
       },
-      
       formatDateTime(dateStr) {
         if (!dateStr) return '-';
         const date = new Date(dateStr);
         if (isNaN(date.getTime())) return dateStr;
-        return date.toLocaleString('id-ID', { 
-            day: 'numeric', month: 'short', year: 'numeric', 
-            hour: '2-digit', minute: '2-digit' 
-        });
+        return date.toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
       },
-
-      // Helper to get just time
       formatTime(dateStr) {
         if (!dateStr) return '-';
         const date = new Date(dateStr);
         if (isNaN(date.getTime())) return '-';
         return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
       },
-
       showToast(message, type = 'success') {
         const existing = document.getElementById('toast');
         if (existing) existing.remove();
-        
         const toast = document.createElement('div');
         toast.id = 'toast';
         toast.className = `toast fixed top-4 right-4 px-6 py-3 rounded-lg text-white font-medium z-50 shadow-lg ${
@@ -158,7 +114,6 @@
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
       },
-
       togglePassword(inputId, btnId) {
         const input = document.getElementById(inputId);
         const btn = document.getElementById(btnId);
@@ -170,30 +125,21 @@
           btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm2 3-2a3 3 0 11-4 0 3 3 0 014 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>`;
         }
       },
-
       async getLocation() {
         return new Promise((resolve, reject) => {
-          if (!navigator.geolocation) {
-            reject("Geolocation tidak didukung browser ini");
-            return;
-          }
+          if (!navigator.geolocation) { reject("Geolocation tidak didukung"); return; }
           navigator.geolocation.getCurrentPosition(
-            (pos) => resolve({
-              lat: pos.coords.latitude,
-              lng: pos.coords.longitude,
-              name: `Lat: ${pos.coords.latitude.toFixed(4)}, Lng: ${pos.coords.longitude.toFixed(4)}`
-            }),
+            (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, name: `Lat: ${pos.coords.latitude.toFixed(4)}, Lng: ${pos.coords.longitude.toFixed(4)}` }),
             (err) => reject("Gagal mendapatkan lokasi. Pastikan GPS aktif.")
           );
         });
       }
     };
 
-    // ==================== UI COMPONENTS (RENDERERS) ====================
+    // ==================== UI COMPONENTS ====================
     const UI = {
       render() {
         const app = document.getElementById('app');
-        
         if (!State.currentUser) {
           app.innerHTML = State.currentView === 'register' ? UI.registerPage() : UI.loginPage();
         } else {
@@ -226,7 +172,12 @@
                   </div>
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
-                    <input type="password" id="loginPassword" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Masukkan password">
+                    <div class="relative">
+                      <input type="password" id="loginPassword" required class="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Masukkan password">
+                      <button type="button" id="toggleLoginPass" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 focus:outline-none">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm2 3-2a3 3 0 11-4 0 3 3 0 014 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                      </button>
+                    </div>
                   </div>
                   <button type="submit" id="loginBtn" class="w-full btn-primary text-white font-semibold py-3 rounded-lg transition-all">Masuk</button>
                 </form>
@@ -244,70 +195,33 @@
           const val = num < 10 ? `0${num}` : `${num}`;
           return `<option value="RT ${val}">RT ${val}</option>`;
         }).join('');
-
         return `
           <div class="min-h-full gradient-bg flex items-center justify-center p-4 fade-in">
             <div class="w-full max-w-md">
-              <div class="text-center mb-8">
-                <h1 class="text-3xl font-bold text-white mb-2">${Config.APP_TITLE}</h1>
-                <p class="text-blue-200">Registrasi Warga Baru</p>
-              </div>
+              <div class="text-center mb-8"><h1 class="text-3xl font-bold text-white mb-2">${Config.APP_TITLE}</h1><p class="text-blue-200">Registrasi Warga Baru</p></div>
               <div class="bg-white rounded-2xl card-shadow p-8">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Daftar Akun</h2>
                 <form id="registerForm" class="space-y-4">
-                  
                   <input type="text" id="regFullName" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Nama Lengkap">
-                  
-                  <select id="regRt" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none">
-                    <option value="">Pilih RT</option>
-                    ${rtOptions}
-                  </select>
-
-                  <!-- Jabatan -->
+                  <select id="regRt" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none"><option value="">Pilih RT</option>${rtOptions}</select>
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Jabatan</label>
                     <select id="regJabatan" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none">
                       <option value="">Pilih Jabatan</option>
-                      <option value="Ketua RW">Ketua RW</option>
-                      <option value="Ketua RT">Ketua RT</option>
-                      <option value="Ketua PKK">Ketua PKK</option>
-                      <option value="Ketua Dawis">Ketua Dawis</option>
-                      <option value="Ketua Posyandu">Ketua Posyandu</option>
-                      <option value="Bendahara RW">Bendahara RW</option>
-                      <option value="Sekretaris">Sekretaris</option>
-                      <option value="Ketua LMK">Ketua LMK</option>
-                      <option value="Ket. Karang Taruna">Ket. Karang Taruna</option>
+                      <option value="Ketua RW">Ketua RW</option><option value="Ketua RT">Ketua RT</option><option value="Ketua PKK">Ketua PKK</option>
+                      <option value="Ketua Dawis">Ketua Dawis</option><option value="Ketua Posyandu">Ketua Posyandu</option><option value="Bendahara RW">Bendahara RW</option>
+                      <option value="Sekretaris">Sekretaris</option><option value="Ketua LMK">Ketua LMK</option><option value="Ket. Karang Taruna">Ket. Karang Taruna</option>
                       <option value="Lainnya">Lainnya</option>
                     </select>
-                    <!-- Custom Jabatan Input (Hidden initially) -->
                     <input type="text" id="regJabatanCustom" class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none mt-2 hidden" placeholder="Tulis jabatan Anda...">
                   </div>
-
                   <input type="tel" id="regPhone" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none" placeholder="No. HP">
-                  
                   <input type="text" id="regUsername" required class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Username">
-                  
-                  <!-- Password Field with Eye Icon -->
-                  <div class="relative">
-                    <input type="password" id="regPassword" required minlength="6" class="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Password (Min 6)">
-                    <button type="button" id="togglePassReg" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 focus:outline-none">
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm2 3-2a3 3 0 11-4 0 3 3 0 014 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
-                    </button>
-                  </div>
-                  
-                  <!-- Confirm Password Field with Eye Icon -->
-                  <div class="relative">
-                    <input type="password" id="regConfirmPassword" required class="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Konfirmasi Password">
-                    <button type="button" id="togglePassConfirm" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 focus:outline-none">
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm2 3-2a3 3 0 11-4 0 3 3 0 014 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
-                    </button>
-                  </div>
-
+                  <div class="relative"><input type="password" id="regPassword" required minlength="6" class="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Password (Min 6)"><button type="button" id="togglePassReg" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 focus:outline-none"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm2 3-2a3 3 0 11-4 0 3 3 0 014 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button></div>
+                  <div class="relative"><input type="password" id="regConfirmPassword" required class="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg input-focus outline-none" placeholder="Konfirmasi Password"><button type="button" id="togglePassConfirm" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 focus:outline-none"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm2 3-2a3 3 0 11-4 0 3 3 0 014 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button></div>
                   <button type="submit" id="registerBtn" class="w-full btn-primary text-white font-semibold py-3 rounded-lg transition-all">Daftar</button>
                 </form>
-                <div class="mt-6 text-center">
-                  <button id="goToLogin" class="text-amber-600 font-semibold">← Kembali ke Login</button>
-                </div>
+                <div class="mt-6 text-center"><button id="goToLogin" class="text-amber-600 font-semibold">← Kembali ke Login</button></div>
               </div>
             </div>
           </div>`;
@@ -318,94 +232,83 @@
         let myAttendances = State.allAttendances.filter(a => a.userId === State.currentUser.id);
         myAttendances.sort((a, b) => new Date(b.attendanceTime) - new Date(a.attendanceTime));
 
+        // Prepare Active Participants List (From all active activities)
+        const activeActivitiesIds = activities.map(a => String(a.__backendId));
+        const activeParticipants = State.allAttendances.filter(a => activeActivitiesIds.includes(String(a.activityId)));
+        activeParticipants.sort((a, b) => new Date(b.attendanceTime) - new Date(a.attendanceTime));
+
         return `
           <div class="min-h-full bg-gray-50 pb-20">
             <header class="gradient-bg text-white p-4 shadow-lg sticky top-0 z-20">
               <div class="max-w-4xl mx-auto flex justify-between items-center">
-                <div>
-                  <h1 class="text-xl font-bold">${Config.APP_TITLE}</h1>
-                  <p class="text-blue-200 text-sm">Halo, ${State.currentUser.fullName}</p>
-                </div>
+                <div><h1 class="text-xl font-bold">${Config.APP_TITLE}</h1><p class="text-blue-200 text-sm">Halo, ${State.currentUser.fullName}</p></div>
                 <button id="logoutBtn" class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-sm">Keluar</button>
               </div>
             </header>
-            
             <main class="max-w-4xl mx-auto p-4 space-y-6 fade-in">
               
-              <div class="grid grid-cols-2 gap-4">
-                <div class="bg-white p-4 rounded-xl card-shadow">
-                  <p class="text-2xl font-bold text-gray-800">${activities.length}</p>
-                  <p class="text-sm text-gray-500">Kegiatan Aktif</p>
-                </div>
-                <div class="bg-white p-4 rounded-xl card-shadow">
-                  <p class="text-2xl font-bold text-gray-800">${myAttendances.length}</p>
-                  <p class="text-sm text-gray-500">Total Hadir</p>
-                </div>
-              </div>
-
+              <!-- Active Participants Table (New Requirement) -->
+              ${activeParticipants.length > 0 ? `
               <div class="bg-white rounded-xl card-shadow overflow-hidden">
                 <div class="p-4 border-b border-gray-100 bg-gray-50">
-                  <h2 class="font-bold text-gray-800">📋 Kegiatan Tersedia</h2>
+                  <h2 class="font-bold text-gray-800">👥 Peserta Kegiatan Aktif</h2>
                 </div>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-sm text-left whitespace-nowrap min-w-[800px]">
+                    <thead class="bg-gray-50"><tr><th class="p-3 border">No</th><th class="p-3 border">Nama</th><th class="p-3 border">Jabatan</th><th class="p-3 border">Kegiatan</th><th class="p-3 border">Foto</th><th class="p-3 border">Tanda Tangan</th><th class="p-3 border">Waktu</th></tr></thead>
+                    <tbody class="divide-y">
+                      ${activeParticipants.map((att, i) => {
+                        const act = State.allActivities.find(a => String(a.__backendId) === String(att.activityId));
+                        const actName = act ? act.activityName : '-';
+                        return `
+                        <tr>
+                          <td class="p-3 border text-center">${i + 1}</td>
+                          <td class="p-3 border font-medium">${att.userFullName}<br><span class="text-xs text-gray-500">${att.userRt}</span></td>
+                          <td class="p-3 border">${att.userJabatan || '-'}</td>
+                          <td class="p-3 border">${actName}</td>
+                          <td class="p-3 border">${att.photoData ? `<img src="${att.photoData}" class="w-10 h-10 rounded object-cover cursor-pointer hover:scale-110 transition-transform" onclick="window.open('${att.photoData}')">` : '-'}</td>
+                          <td class="p-3 border">${att.signatureData ? `<img src="${att.signatureData}" class="w-12 h-12 bg-white border border-gray-200 rounded cursor-pointer hover:scale-110 transition-transform" onclick="window.open('${att.signatureData}')">` : '-'}</td>
+                          <td class="p-3 border">${Utils.formatTime(att.attendanceTime)}</td>
+                        </tr>`;
+                      }).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>` : ''}
+
+              <!-- My Stats -->
+              <div class="grid grid-cols-2 gap-4">
+                <div class="bg-white p-4 rounded-xl card-shadow"><p class="text-2xl font-bold text-gray-800">${activities.length}</p><p class="text-sm text-gray-500">Kegiatan Aktif</p></div>
+                <div class="bg-white p-4 rounded-xl card-shadow"><p class="text-2xl font-bold text-gray-800">${myAttendances.length}</p><p class="text-sm text-gray-500">Total Hadir Saya</p></div>
+              </div>
+
+              <!-- My Activities -->
+              <div class="bg-white rounded-xl card-shadow overflow-hidden">
+                <div class="p-4 border-b border-gray-100 bg-gray-50"><h2 class="font-bold text-gray-800">📋 Kegiatan Tersedia</h2></div>
                 <div class="divide-y divide-gray-100">
                   ${activities.length === 0 ? '<div class="p-8 text-center text-gray-500">Tidak ada kegiatan aktif saat ini.</div>' : ''}
                   ${activities.map(act => {
-                    // FIX: Ensure strict string comparison for IDs to prevent type mismatch bugs
                     const hasAttended = myAttendances.some(a => String(a.activityId) === String(act.__backendId));
-                    return `
-                    <div class="p-4 flex justify-between items-start hover:bg-gray-50 transition-colors">
-                      <div>
-                        <h3 class="font-semibold text-gray-800">${act.activityName}</h3>
-                        <div class="mt-1 space-y-0.5">
-                          <p class="text-sm text-gray-500">📅 ${Utils.formatDate(act.activityDate)} • 🕐 ${act.activityTime}</p>
-                          <p class="text-sm text-gray-500">📍 ${act.activityLocation}</p>
-                        </div>
-                      </div>
-                      ${hasAttended 
-                        ? '<span class="mt-2 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">✓ Sudah Absen</span>' 
-                        : `<button data-attend="${act.__backendId}" class="mt-2 btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm">Absen Sekarang</button>`
-                      }
+                    return `<div class="p-4 flex justify-between items-start hover:bg-gray-50 transition-colors">
+                      <div><h3 class="font-semibold text-gray-800">${act.activityName}</h3><div class="mt-1 space-y-0.5"><p class="text-sm text-gray-500">📅 ${Utils.formatDate(act.activityDate)} • 🕐 ${act.activityTime}</p><p class="text-sm text-gray-500">📍 ${act.activityLocation}</p></div></div>
+                      ${hasAttended ? '<span class="mt-2 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">✓ Sudah Absen</span>' : `<button data-attend="${act.__backendId}" class="mt-2 btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm">Absen Sekarang</button>`}
                     </div>`;
                   }).join('')}
                 </div>
               </div>
 
+              <!-- My History -->
               <div class="bg-white rounded-xl card-shadow overflow-hidden">
-                <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                  <h2 class="font-bold text-gray-800">📝 Riwayat Kehadiran Saya</h2>
-                  <span class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium">${myAttendances.length} Catatan</span>
-                </div>
-                
+                <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center"><h2 class="font-bold text-gray-800">📝 Riwayat Kehadiran Saya</h2><span class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium">${myAttendances.length} Catatan</span></div>
                 <div class="max-h-[500px] overflow-y-auto">
-                  ${myAttendances.length === 0 ? `
-                    <div class="p-10 text-center text-gray-400">
-                      <svg class="w-16 h-16 mx-auto mb-2 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                      <p>Belum ada riwayat kehadiran</p>
-                    </div>
-                  ` : ''}
-                  
+                  ${myAttendances.length === 0 ? `<div class="p-10 text-center text-gray-400"><svg class="w-16 h-16 mx-auto mb-2 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg><p>Belum ada riwayat kehadiran</p></div>` : ''}
                   <div class="divide-y divide-gray-100">
                     ${myAttendances.map(att => {
                       const act = State.allActivities.find(a => String(a.__backendId) === String(att.activityId));
                       const actName = act ? act.activityName : 'Kegiatan tidak tersedia';
-                      
-                      return `
-                      <div class="p-4 flex gap-4 hover:bg-blue-50/30 transition-colors cursor-default">
-                        <div class="flex-shrink-0">
-                           ${att.photoData 
-                             ? `<img src="${att.photoData}" class="w-16 h-16 rounded-lg object-cover border border-gray-200 shadow-sm" onclick="window.open('${att.photoData}')">` 
-                             : `<div class="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 text-xs">No Foto</div>`
-                           }
-                        </div>
-                        <div class="flex-1 min-w-0">
-                          <h3 class="font-semibold text-gray-900 truncate">${actName}</h3>
-                          <div class="mt-1 text-sm text-gray-500">
-                            ${Utils.formatDateTime(att.attendanceTime)}
-                          </div>
-                          <div class="mt-2">
-                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Hadir</span>
-                          </div>
-                        </div>
+                      return `<div class="p-4 flex gap-4 hover:bg-blue-50/30 transition-colors cursor-default">
+                        <div class="flex-shrink-0">${att.photoData ? `<img src="${att.photoData}" class="w-16 h-16 rounded-lg object-cover border border-gray-200 shadow-sm" onclick="window.open('${att.photoData}')">` : `<div class="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 text-xs">No Foto</div>`}</div>
+                        <div class="flex-1 min-w-0"><h3 class="font-semibold text-gray-900 truncate">${actName}</h3><div class="mt-1 text-sm text-gray-500">${Utils.formatDateTime(att.attendanceTime)}</div><div class="mt-2"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Hadir</span></div></div>
                       </div>`;
                     }).join('')}
                   </div>
@@ -420,43 +323,27 @@
         return `
           <div id="attendanceModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-              <div class="p-4 border-b flex justify-between">
-                <h3 class="font-bold text-lg">📸 Absensi</h3>
-                <button id="closeAttendanceModal" class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
-              </div>
+              <div class="p-4 border-b flex justify-between"><h3 class="font-bold text-lg">📸 Absensi</h3><button id="closeAttendanceModal" class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button></div>
               <div class="p-4 space-y-4">
-                
-                <!-- Camera Section -->
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-2">Foto Wajah</label>
-                  <div class="relative bg-gray-900 rounded-lg overflow-hidden aspect-video shadow-inner">
-                    <video id="cameraVideo" autoplay playsinline class="w-full h-full object-cover"></video>
-                    <img id="capturedImage" class="w-full h-full object-cover hidden">
-                  </div>
-                  <div class="flex gap-2 mt-2">
-                    <button id="captureBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-medium transition-colors">📷 Ambil Foto</button>
-                    <button id="retakeBtn" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2.5 rounded-lg font-medium transition-colors hidden">🔄 Ulangi Foto</button>
-                  </div>
+                  <div class="relative bg-gray-900 rounded-lg overflow-hidden aspect-video shadow-inner"><video id="cameraVideo" autoplay playsinline class="w-full h-full object-cover"></video><img id="capturedImage" class="w-full h-full object-cover hidden"></div>
+                  <div class="flex gap-2 mt-2"><button id="captureBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-medium transition-colors">📷 Ambil Foto</button><button id="retakeBtn" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2.5 rounded-lg font-medium transition-colors hidden">🔄 Ulangi Foto</button></div>
                 </div>
-
-                <!-- Signature Section -->
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-2">Tanda Tangan</label>
-                  <!-- FIX: Removed inline style height to let CSS control it, JS will sync internal resolution -->
-                  <div class="relative border-2 border-gray-300 rounded-lg bg-white overflow-hidden touch-none h-32" id="sigContainer" style="touch-action: none;">
+                  <!-- FIX: h-40 ensures height is sufficient -->
+                  <div class="relative border-2 border-gray-300 rounded-lg bg-white overflow-hidden touch-none h-40 w-full" id="sigContainer" style="touch-action: none;">
                     <canvas id="signatureCanvas" class="w-full h-full cursor-crosshair"></canvas>
                     <button type="button" id="clearSignature" class="absolute top-2 right-2 text-xs bg-red-50 text-red-600 border border-red-200 px-2 py-1 rounded hover:bg-red-100 z-10">Hapus</button>
                   </div>
                   <p class="text-xs text-gray-400 mt-1">Silakan tanda tangan di kotak di atas</p>
                 </div>
-                
-                <!-- Location Section -->
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-1">Lokasi GPS</label>
                   <div id="locationStatus" class="bg-gray-100 p-3 rounded-lg text-sm text-gray-600 min-h-[2.5rem] flex items-center">⏳ Mendeteksi lokasi...</div>
                   <button id="refreshLocation" class="text-xs text-blue-600 mt-2 font-medium hover:underline">Refresh Lokasi</button>
                 </div>
-                
                 <button id="submitAttendance" disabled class="w-full btn-primary text-white py-3 rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg">✓ Kirim Absensi</button>
               </div>
             </div>
@@ -467,48 +354,32 @@
         return `
           <div class="min-h-full bg-gray-50 pb-20">
             <header class="gradient-bg text-white p-4 sticky top-0 z-20">
-              <div class="max-w-6xl mx-auto flex justify-between">
-                <div><h1 class="text-xl font-bold">${Config.APP_TITLE}</h1><p class="text-blue-200 text-sm">Admin Panel</p></div>
-                <button id="logoutBtn" class="bg-white/20 px-3 py-1 rounded text-sm">Keluar</button>
-              </div>
+              <div class="max-w-6xl mx-auto flex justify-between"><div><h1 class="text-xl font-bold">${Config.APP_TITLE}</h1><p class="text-blue-200 text-sm">Admin Panel</p></div><button id="logoutBtn" class="bg-white/20 px-3 py-1 rounded text-sm">Keluar</button></div>
             </header>
-            
             <nav class="bg-white shadow sticky top-[60px] z-10 overflow-x-auto">
-              <div class="flex max-w-6xl mx-auto">
-                <button data-tab="dashboard" class="admin-tab px-6 py-3 border-b-2 border-amber-500 text-amber-600 font-medium whitespace-nowrap">Dashboard</button>
-                <button data-tab="activities" class="admin-tab px-6 py-3 border-b-2 border-transparent text-gray-500 font-medium whitespace-nowrap">Kegiatan</button>
-                <button data-tab="report" class="admin-tab px-6 py-3 border-b-2 border-transparent text-gray-500 font-medium whitespace-nowrap">Laporan</button>
-              </div>
+              <div class="flex max-w-6xl mx-auto"><button data-tab="dashboard" class="admin-tab px-6 py-3 border-b-2 border-amber-500 text-amber-600 font-medium whitespace-nowrap">Dashboard</button><button data-tab="activities" class="admin-tab px-6 py-3 border-b-2 border-transparent text-gray-500 font-medium whitespace-nowrap">Kegiatan</button><button data-tab="report" class="admin-tab px-6 py-3 border-b-2 border-transparent text-gray-500 font-medium whitespace-nowrap">Laporan</button></div>
             </nav>
-
             <main class="max-w-6xl mx-auto p-4 fade-in">
               <div id="tab-dashboard" class="tab-content">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <div class="bg-white p-6 rounded-xl card-shadow">
-                    <p class="text-3xl font-bold text-gray-800">${State.allActivities.length}</p>
-                    <p class="text-gray-500">Total Kegiatan</p>
-                  </div>
-                  <div class="bg-white p-6 rounded-xl card-shadow">
-                    <p class="text-3xl font-bold text-gray-800">${State.allAttendances.length}</p>
-                    <p class="text-gray-500">Total Kehadiran</p>
-                  </div>
-                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"><div class="bg-white p-6 rounded-xl card-shadow"><p class="text-3xl font-bold text-gray-800">${State.allActivities.length}</p><p class="text-gray-500">Total Kegiatan</p></div><div class="bg-white p-6 rounded-xl card-shadow"><p class="text-3xl font-bold text-gray-800">${State.allAttendances.length}</p><p class="text-gray-500">Total Kehadiran</p></div></div>
                 <div class="bg-white rounded-xl card-shadow overflow-hidden">
                   <div class="p-4 border-b"><h2 class="font-bold">Kehadiran Terbaru</h2></div>
                   <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left">
-                      <thead class="bg-gray-50"><tr><th class="p-3">Nama</th><th class="p-3">Kegiatan</th><th class="p-3">Waktu</th><th class="p-3">Foto</th></tr></thead>
+                    <!-- Updated Columns: No., Nama, Jabatan, Kegiatan, Photo, Tanda tangan, Data -->
+                    <table class="w-full text-sm text-left whitespace-nowrap min-w-[800px]">
+                      <thead class="bg-gray-50"><tr><th class="p-3 border">No</th><th class="p-3 border">Nama</th><th class="p-3 border">Jabatan</th><th class="p-3 border">Kegiatan</th><th class="p-3 border">Foto</th><th class="p-3 border">Tanda Tangan</th><th class="p-3 border">Waktu</th></tr></thead>
                       <tbody class="divide-y">
-                        ${State.allAttendances.slice(0, 5).map(att => {
+                        ${State.allAttendances.slice(0, 10).map((att, i) => {
                           const act = State.allActivities.find(a => String(a.__backendId) === String(att.activityId));
                           return `
                           <tr>
-                            <td class="p-3 font-medium">${att.userFullName}<br><span class="text-xs text-gray-500">${att.userRt}</span></td>
-                            <td class="p-3">${act?.activityName || '-'}</td>
-                            <td class="p-3">${Utils.formatDateTime(att.attendanceTime)}</td>
-                            <td class="p-3">
-                              ${att.photoData ? `<img src="${att.photoData}" class="w-10 h-10 rounded object-cover cursor-pointer" onclick="window.open(this.src)">` : '-'}
-                            </td>
+                            <td class="p-3 border text-center">${i + 1}</td>
+                            <td class="p-3 border font-medium">${att.userFullName}<br><span class="text-xs text-gray-500">${att.userRt}</span></td>
+                            <td class="p-3 border">${att.userJabatan || '-'}</td>
+                            <td class="p-3 border">${act?.activityName || '-'}</td>
+                            <td class="p-3 border">${att.photoData ? `<img src="${att.photoData}" class="w-10 h-10 rounded object-cover cursor-pointer hover:scale-110" onclick="window.open(this.src)">` : '-'}</td>
+                            <td class="p-3 border">${att.signatureData ? `<img src="${att.signatureData}" class="w-12 h-12 bg-white border border-gray-200 rounded cursor-pointer hover:scale-110" onclick="window.open(this.src)">` : '-'}</td>
+                            <td class="p-3 border">${Utils.formatTime(att.attendanceTime)}</td>
                           </tr>`;
                         }).join('')}
                       </tbody>
@@ -516,91 +387,25 @@
                   </div>
                 </div>
               </div>
-
               <div id="tab-activities" class="tab-content hidden">
                 <div class="bg-white rounded-xl card-shadow overflow-hidden">
-                  <div class="p-4 border-b flex justify-between items-center">
-                    <h2 class="font-bold">Daftar Kegiatan</h2>
-                    <button id="addActivityBtn" class="btn-primary text-white px-4 py-2 rounded text-sm">+ Tambah</button>
-                  </div>
-                  <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left">
-                      <thead class="bg-gray-50"><tr><th class="p-3">Nama</th><th class="p-3">Tanggal</th><th class="p-3">Status</th><th class="p-3">Aksi</th></tr></thead>
-                      <tbody class="divide-y">
-                        ${State.allActivities.map(act => `
-                          <tr>
-                            <td class="p-3 font-medium">${act.activityName}</td>
-                            <td class="p-3">${Utils.formatDate(act.activityDate)}</td>
-                            <td class="p-3"><span class="px-2 py-1 rounded-full text-xs ${act.activityStatus === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}">${act.activityStatus}</span></td>
-                            <td class="p-3 flex gap-2">
-                              <button data-toggle="${act.__backendId}" class="text-blue-600 hover:underline">${act.activityStatus === 'active' ? 'Tutup' : 'Buka'}</button>
-                              <button data-delete="${act.__backendId}" class="text-red-600 hover:underline">Hapus</button>
-                            </td>
-                          </tr>
-                        `).join('')}
-                      </tbody>
-                    </table>
-                  </div>
+                  <div class="p-4 border-b flex justify-between items-center"><h2 class="font-bold">Daftar Kegiatan</h2><button id="addActivityBtn" class="btn-primary text-white px-4 py-2 rounded text-sm">+ Tambah</button></div>
+                  <div class="overflow-x-auto"><table class="w-full text-sm text-left"><thead class="bg-gray-50"><tr><th class="p-3">Nama</th><th class="p-3">Tanggal</th><th class="p-3">Status</th><th class="p-3">Aksi</th></tr></thead><tbody class="divide-y">${State.allActivities.map(act => `<tr><td class="p-3 font-medium">${act.activityName}</td><td class="p-3">${Utils.formatDate(act.activityDate)}</td><td class="p-3"><span class="px-2 py-1 rounded-full text-xs ${act.activityStatus === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}">${act.activityStatus}</span></td><td class="p-3 flex gap-2"><button data-toggle="${act.__backendId}" class="text-blue-600 hover:underline">${act.activityStatus === 'active' ? 'Tutup' : 'Buka'}</button><button data-delete="${act.__backendId}" class="text-red-600 hover:underline">Hapus</button></td></tr>`).join('')}</tbody></table></div>
                 </div>
               </div>
-
               <div id="tab-report" class="tab-content hidden">
-                <div class="bg-white rounded-xl card-shadow p-4">
-                  <h2 class="font-bold mb-4">Rekap Laporan</h2>
-                  <div class="flex gap-4 flex-col md:flex-row mb-4">
-                    <select id="reportActivity" class="border p-2 rounded w-full md:w-1/2 input-focus outline-none">
-                      <option value="">Pilih Kegiatan</option>
-                      ${State.allActivities.map(act => `<option value="${act.__backendId}">${act.activityName}</option>`).join('')}
-                    </select>
-                    <button id="generateReport" class="btn-primary text-white px-4 py-2 rounded">Tampilkan</button>
-                  </div>
-                  <div id="reportResult" class="hidden overflow-x-auto">
-                    <table id="reportTable" class="w-full text-sm text-left border">
-                      <thead class="bg-gray-100"><tr><th class="p-2 border">No</th><th class="p-2 border">Nama</th><th class="p-2 border">RT</th><th class="p-2 border">Waktu</th></tr></thead>
-                      <tbody id="reportBody"></tbody>
-                    </table>
-                    <button id="exportPdf" class="mt-4 bg-red-600 text-white px-4 py-2 rounded text-sm">Download PDF</button>
-                  </div>
-                </div>
+                <div class="bg-white rounded-xl card-shadow p-4"><h2 class="font-bold mb-4">Rekap Laporan</h2><div class="flex gap-4 flex-col md:flex-row mb-4"><select id="reportActivity" class="border p-2 rounded w-full md:w-1/2 input-focus outline-none"><option value="">Pilih Kegiatan</option>${State.allActivities.map(act => `<option value="${act.__backendId}">${act.activityName}</option>`).join('')}</select><button id="generateReport" class="btn-primary text-white px-4 py-2 rounded">Tampilkan</button></div><div id="reportResult" class="hidden overflow-x-auto"><table id="reportTable" class="w-full text-sm text-left border"><thead class="bg-gray-100"><tr><th class="p-2 border">No</th><th class="p-2 border">Nama</th><th class="p-2 border">RT</th><th class="p-2 border">Jabatan</th><th class="p-2 border">Waktu</th></tr></thead><tbody id="reportBody"></tbody></table><button id="exportPdf" class="mt-4 bg-red-600 text-white px-4 py-2 rounded text-sm">Download PDF</button></div></div>
               </div>
             </main>
-            ${UI.activityModal()}
-            ${UI.deleteModal()}
+            ${UI.activityModal()}${UI.deleteModal()}
           </div>`;
       },
 
       activityModal() {
-        return `
-          <div id="activityModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl w-full max-w-md p-6">
-              <h3 class="font-bold text-lg mb-4">Tambah Kegiatan</h3>
-              <form id="activityForm" class="space-y-4">
-                <input type="text" id="actName" required class="w-full border p-2 rounded input-focus outline-none" placeholder="Nama Kegiatan">
-                <input type="date" id="actDate" required class="w-full border p-2 rounded input-focus outline-none">
-                <input type="time" id="actTime" required class="w-full border p-2 rounded input-focus outline-none">
-                <input type="text" id="actLocation" required class="w-full border p-2 rounded input-focus outline-none" placeholder="Lokasi">
-                <div class="flex gap-2">
-                  <button type="button" id="closeActivityModal" class="flex-1 bg-gray-200 text-gray-800 py-2 rounded">Batal</button>
-                  <button type="submit" class="flex-1 btn-primary text-white py-2 rounded">Simpan</button>
-                </div>
-              </form>
-            </div>
-          </div>`;
+        return `<div id="activityModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4"><div class="bg-white rounded-2xl w-full max-w-md p-6"><h3 class="font-bold text-lg mb-4">Tambah Kegiatan</h3><form id="activityForm" class="space-y-4"><input type="text" id="actName" required class="w-full border p-2 rounded input-focus outline-none" placeholder="Nama Kegiatan"><input type="date" id="actDate" required class="w-full border p-2 rounded input-focus outline-none"><input type="time" id="actTime" required class="w-full border p-2 rounded input-focus outline-none"><input type="text" id="actLocation" required class="w-full border p-2 rounded input-focus outline-none" placeholder="Lokasi"><div class="flex gap-2"><button type="button" id="closeActivityModal" class="flex-1 bg-gray-200 text-gray-800 py-2 rounded">Batal</button><button type="submit" class="flex-1 btn-primary text-white py-2 rounded">Simpan</button></div></form></div></div>`;
       },
-
       deleteModal() {
-        return `
-          <div id="deleteModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl w-full max-w-sm p-6 text-center">
-              <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2 text-red-600">⚠️</div>
-              <h3 class="font-bold text-lg mb-2">Hapus Kegiatan?</h3>
-              <p class="text-sm text-gray-500 mb-4">Data tidak bisa dikembalikan.</p>
-              <div class="flex gap-2">
-                <button id="cancelDelete" class="flex-1 bg-gray-200 py-2 rounded">Batal</button>
-                <button id="confirmDelete" class="flex-1 bg-red-600 text-white py-2 rounded">Hapus</button>
-              </div>
-            </div>
-          </div>`;
+        return `<div id="deleteModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4"><div class="bg-white rounded-2xl w-full max-w-sm p-6 text-center"><div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2 text-red-600">⚠️</div><h3 class="font-bold text-lg mb-2">Hapus Kegiatan?</h3><p class="text-sm text-gray-500 mb-4">Data tidak bisa dikembalikan.</p><div class="flex gap-2"><button id="cancelDelete" class="flex-1 bg-gray-200 py-2 rounded">Batal</button><button id="confirmDelete" class="flex-1 bg-red-600 text-white py-2 rounded">Hapus</button></div></div></div>`;
       }
     };
 
@@ -609,28 +414,26 @@
       async init() {
         try {
           const session = localStorage.getItem('rw_session');
-          if (session) {
-            State.currentUser = JSON.parse(session);
-            await App.loadData();
-          }
+          if (session) { State.currentUser = JSON.parse(session); await App.loadData(); }
         } catch (e) { console.error(e); }
         UI.render();
       },
-
       async loadData() {
-        try {
-          await Promise.all([Api.getActivities(), Api.getAttendances()]);
-          UI.render(); 
-        } catch (e) {
-          console.error("Gagal memuat data", e);
+        try { await Promise.all([Api.getActivities(), Api.getAttendances()]); UI.render(); } catch (e) { console.error("Gagal memuat data", e); }
+      },
+      updateSubmitBtn() {
+        const btn = document.getElementById('submitAttendance');
+        if (btn) {
+          const hasPhoto = !!State.temp.capturedPhoto;
+          const hasLoc = !!State.temp.location;
+          const hasSig = State.temp.hasSignature === true;
+          btn.disabled = !(hasPhoto && hasLoc && hasSig);
         }
       },
-
       attachEvents() {
         document.getElementById('loginForm')?.addEventListener('submit', App.handlers.login);
         document.getElementById('registerForm')?.addEventListener('submit', App.handlers.register);
         document.getElementById('activityForm')?.addEventListener('submit', App.handlers.addActivity);
-
         document.getElementById('goToRegister')?.addEventListener('click', () => { State.currentView = 'register'; UI.render(); });
         document.getElementById('goToLogin')?.addEventListener('click', () => { State.currentView = 'login'; UI.render(); });
         document.getElementById('logoutBtn')?.addEventListener('click', App.handlers.logout);
@@ -638,17 +441,14 @@
         // Password Toggles
         document.getElementById('togglePassReg')?.addEventListener('click', () => Utils.togglePassword('regPassword', 'togglePassReg'));
         document.getElementById('togglePassConfirm')?.addEventListener('click', () => Utils.togglePassword('regConfirmPassword', 'togglePassConfirm'));
+        document.getElementById('toggleLoginPass')?.addEventListener('click', () => Utils.togglePassword('loginPassword', 'toggleLoginPass'));
 
         const jabatanSelect = document.getElementById('regJabatan');
         const jabatanCustom = document.getElementById('regJabatanCustom');
         if(jabatanSelect && jabatanCustom) {
           jabatanSelect.addEventListener('change', (e) => {
-            if(e.target.value === 'Lainnya') {
-              jabatanCustom.classList.remove('hidden');
-              jabatanCustom.focus();
-            } else {
-              jabatanCustom.classList.add('hidden');
-            }
+            if(e.target.value === 'Lainnya') { jabatanCustom.classList.remove('hidden'); jabatanCustom.focus(); } 
+            else { jabatanCustom.classList.add('hidden'); }
           });
         }
 
@@ -656,76 +456,35 @@
         document.querySelectorAll('.admin-tab').forEach(tab => {
           tab.addEventListener('click', (e) => {
             const target = e.target.dataset.tab;
-            document.querySelectorAll('.admin-tab').forEach(t => {
-              t.classList.remove('border-amber-500', 'text-amber-600');
-              t.classList.add('border-transparent');
-            });
-            e.target.classList.remove('border-transparent');
-            e.target.classList.add('border-amber-500', 'text-amber-600');
+            document.querySelectorAll('.admin-tab').forEach(t => { t.classList.remove('border-amber-500', 'text-amber-600'); t.classList.add('border-transparent'); });
+            e.target.classList.remove('border-transparent'); e.target.classList.add('border-amber-500', 'text-amber-600');
             document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
             document.getElementById(`tab-${target}`).classList.remove('hidden');
           });
         });
 
         // Modals
-        document.getElementById('addActivityBtn')?.addEventListener('click', () => {
-          document.getElementById('activityModal').classList.remove('hidden');
-        });
-        document.getElementById('closeActivityModal')?.addEventListener('click', () => {
-          document.getElementById('activityModal').classList.add('hidden');
-          document.getElementById('activityForm').reset();
-        });
-
-        document.querySelectorAll('[data-toggle]').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const btnOrig = btn.textContent;
-            btn.textContent = '...';
-            try {
-              await Api.toggleActivity(btn.dataset.toggle);
-              await App.loadData();
-            } catch (err) {
-              btn.textContent = btnOrig;
-            }
-          });
-        });
-
-        document.querySelectorAll('[data-delete]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            State.temp.deleteActivityId = btn.dataset.delete;
-            document.getElementById('deleteModal').classList.remove('hidden');
-          });
-        });
-
-        document.getElementById('cancelDelete')?.addEventListener('click', () => {
-          document.getElementById('deleteModal').classList.add('hidden');
-        });
-
-        document.getElementById('confirmDelete')?.addEventListener('click', async () => {
-          try {
-            await Api.deleteActivity(State.temp.deleteActivityId);
-            document.getElementById('deleteModal').classList.add('hidden');
-            await App.loadData();
-          } catch (e) {
-             console.log("Delete error handled by API");
-          }
-        });
+        document.getElementById('addActivityBtn')?.addEventListener('click', () => document.getElementById('activityModal').classList.remove('hidden'));
+        document.getElementById('closeActivityModal')?.addEventListener('click', () => { document.getElementById('activityModal').classList.add('hidden'); document.getElementById('activityForm').reset(); });
+        document.querySelectorAll('[data-toggle]').forEach(btn => { btn.addEventListener('click', async () => { const btnOrig = btn.textContent; btn.textContent = '...'; try { await Api.toggleActivity(btn.dataset.toggle); await App.loadData(); } catch (err) { btn.textContent = btnOrig; } }); });
+        document.querySelectorAll('[data-delete]').forEach(btn => { btn.addEventListener('click', () => { State.temp.deleteActivityId = btn.dataset.delete; document.getElementById('deleteModal').classList.remove('hidden'); }); });
+        document.getElementById('cancelDelete')?.addEventListener('click', () => document.getElementById('deleteModal').classList.add('hidden'));
+        document.getElementById('confirmDelete')?.addEventListener('click', async () => { try { await Api.deleteActivity(State.temp.deleteActivityId); document.getElementById('deleteModal').classList.add('hidden'); await App.loadData(); } catch (e) {} });
 
         // Attendance Flow
-        document.querySelectorAll('[data-attend]').forEach(btn => {
-          btn.addEventListener('click', () => App.handlers.openAttendanceModal(btn.dataset.attend));
-        });
-
+        document.querySelectorAll('[data-attend]').forEach(btn => { btn.addEventListener('click', () => App.handlers.openAttendanceModal(btn.dataset.attend)); });
         document.getElementById('closeAttendanceModal')?.addEventListener('click', App.handlers.closeAttendanceModal);
         document.getElementById('captureBtn')?.addEventListener('click', App.handlers.capturePhoto);
-        document.getElementById('retakeBtn')?.addEventListener('click', () => {
+        document.getElementById('retakeBtn')?.addEventListener('click', async () => {
           document.getElementById('capturedImage').classList.add('hidden');
           document.getElementById('cameraVideo').classList.remove('hidden');
           document.getElementById('captureBtn').classList.remove('hidden');
           document.getElementById('retakeBtn').classList.add('hidden');
           State.temp.capturedPhoto = null;
+          // FIX: Restart Camera
+          await App.handlers.startCamera();
           App.updateSubmitBtn();
         });
-        
         document.getElementById('clearSignature')?.addEventListener('click', App.handlers.clearSignature);
         document.getElementById('refreshLocation')?.addEventListener('click', App.handlers.getLocation);
         document.getElementById('submitAttendance')?.addEventListener('click', App.handlers.submitAttendance);
@@ -735,110 +494,54 @@
         document.getElementById('exportPdf')?.addEventListener('click', App.handlers.exportPdf);
       },
 
-      updateSubmitBtn() {
-        const btn = document.getElementById('submitAttendance');
-        if (btn) {
-          const hasPhoto = !!State.temp.capturedPhoto;
-          const hasLoc = !!State.temp.location;
-          const hasSig = State.temp.hasSignature === true;
-          const isComplete = hasPhoto && hasLoc && hasSig;
-          btn.disabled = !isComplete;
-        }
-      },
-
       handlers: {
         async login(e) {
           e.preventDefault();
           const userIn = document.getElementById('loginUsername').value;
           const passIn = document.getElementById('loginPassword').value;
           const btn = document.getElementById('loginBtn');
-          
           btn.disabled = true; btn.innerHTML = '<div class="loader mx-auto"></div>';
-
           try {
             let user;
-            if(userIn === 'admin' && passIn === 'admin123') {
-               user = { id: 'admin', username: 'admin', fullName: 'Administrator', role: 'admin' };
-            } else {
-               user = await Api.login(userIn, passIn);
-            }
+            if(userIn === 'admin' && passIn === 'admin123') { user = { id: 'admin', username: 'admin', fullName: 'Administrator', role: 'admin' }; } 
+            else { user = await Api.login(userIn, passIn); }
             State.currentUser = user;
             localStorage.setItem('rw_session', JSON.stringify(user));
             await App.loadData();
             Utils.showToast('Login Berhasil');
-          } catch (err) {
-            btn.disabled = false; btn.textContent = 'Masuk';
-          }
+          } catch (err) { btn.disabled = false; btn.textContent = 'Masuk'; }
         },
-
         async register(e) {
           e.preventDefault();
-          
           const jabatanSelect = document.getElementById('regJabatan').value;
           const jabatanCustom = document.getElementById('regJabatanCustom').value;
           const finalJabatan = (jabatanSelect === 'Lainnya') ? jabatanCustom : jabatanSelect;
-
-          if (!finalJabatan) {
-            Utils.showToast('Mohon pilih atau isi jabatan', 'error');
-            return;
-          }
-
+          if (!finalJabatan) { Utils.showToast('Mohon pilih atau isi jabatan', 'error'); return; }
           const pass = document.getElementById('regPassword').value;
           const confirm = document.getElementById('regConfirmPassword').value;
-          if (pass !== confirm) {
-            Utils.showToast('Password dan konfirmasi password tidak cocok', 'error');
-            return;
-          }
-
+          if (pass !== confirm) { Utils.showToast('Password dan konfirmasi password tidak cocok', 'error'); return; }
           const btn = document.getElementById('registerBtn');
-          const data = {
-            fullName: document.getElementById('regFullName').value,
-            rt: document.getElementById('regRt').value,
-            jabatan: finalJabatan, 
-            phone: document.getElementById('regPhone').value,
-            username: document.getElementById('regUsername').value,
-            password: pass
-          };
-
+          const data = { fullName: document.getElementById('regFullName').value, rt: document.getElementById('regRt').value, jabatan: finalJabatan, phone: document.getElementById('regPhone').value, username: document.getElementById('regUsername').value, password: pass };
           btn.disabled = true; btn.innerHTML = '<div class="loader mx-auto"></div>';
-
-          try {
-            await Api.register(data);
-            Utils.showToast('Registrasi Berhasil');
-            State.currentView = 'login';
-            UI.render();
-          } catch (err) {
-            btn.disabled = false; btn.textContent = 'Daftar';
-          }
+          try { await Api.register(data); Utils.showToast('Registrasi Berhasil'); State.currentView = 'login'; UI.render(); } catch (err) { btn.disabled = false; btn.textContent = 'Daftar'; }
         },
-
-        logout() {
-          State.currentUser = null;
-          localStorage.removeItem('rw_session');
-          State.currentView = 'login';
-          UI.render();
-          Utils.showToast('Keluar');
-        },
-
+        logout() { State.currentUser = null; localStorage.removeItem('rw_session'); State.currentView = 'login'; UI.render(); Utils.showToast('Keluar'); },
         async addActivity(e) {
           e.preventDefault();
           const btn = document.querySelector('#activityForm button[type="submit"]');
-          const data = {
-            name: document.getElementById('actName').value,
-            date: document.getElementById('actDate').value,
-            time: document.getElementById('actTime').value,
-            location: document.getElementById('actLocation').value
-          };
-          
+          const data = { name: document.getElementById('actName').value, date: document.getElementById('actDate').value, time: document.getElementById('actTime').value, location: document.getElementById('actLocation').value };
           btn.disabled = true;
+          try { await Api.addActivity(data); document.getElementById('activityModal').classList.add('hidden'); document.getElementById('activityForm').reset(); await App.loadData(); } finally { btn.disabled = false; }
+        },
+        
+        async startCamera() {
           try {
-            await Api.addActivity(data);
-            document.getElementById('activityModal').classList.add('hidden');
-            document.getElementById('activityForm').reset();
-            await App.loadData();
-          } finally {
-            btn.disabled = false;
-          }
+            if (State.temp.videoStream) State.temp.videoStream.getTracks().forEach(track => track.stop());
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+            State.temp.videoStream = stream;
+            const video = document.getElementById('cameraVideo');
+            if (video) video.srcObject = stream;
+          } catch (err) { Utils.showToast('Gagal akses kamera. Pastikan izin diberikan.', 'error'); }
         },
 
         async openAttendanceModal(actId) {
@@ -847,7 +550,6 @@
           State.temp.signatureData = null;
           State.temp.hasSignature = false;
           State.temp.location = null;
-          
           const modal = document.getElementById('attendanceModal');
           modal.classList.remove('hidden');
           
@@ -857,32 +559,21 @@
           document.getElementById('captureBtn').classList.remove('hidden');
           document.getElementById('retakeBtn').classList.add('hidden');
           document.getElementById('locationStatus').textContent = '⏳ Mendeteksi lokasi...';
-          
           App.updateSubmitBtn();
 
           // Start Camera
-          try {
-            if (State.temp.videoStream) State.temp.videoStream.getTracks().forEach(track => track.stop());
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-            State.temp.videoStream = stream;
-            document.getElementById('cameraVideo').srcObject = stream;
-          } catch (err) {
-            Utils.showToast('Gagal akses kamera. Pastikan izin diberikan.', 'error');
-          }
+          await App.handlers.startCamera();
 
-          // Initialize Signature Pad immediately
-          // Small delay to ensure DOM is fully painted and container has dimensions
-          setTimeout(() => App.handlers.initSignaturePad(), 50);
+          // Initialize Signature Pad
+          // Delay to ensure modal is rendered and has dimensions
+          setTimeout(() => App.handlers.initSignaturePad(), 100);
 
           // Get Location
           App.handlers.getLocation();
         },
 
         closeAttendanceModal() {
-          if (State.temp.videoStream) {
-            State.temp.videoStream.getTracks().forEach(track => track.stop());
-            State.temp.videoStream = null;
-          }
+          if (State.temp.videoStream) { State.temp.videoStream.getTracks().forEach(track => track.stop()); State.temp.videoStream = null; }
           document.getElementById('attendanceModal').classList.add('hidden');
         },
 
@@ -892,27 +583,19 @@
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
           canvas.getContext('2d').drawImage(video, 0, 0);
-          
           const resizedCanvas = document.createElement('canvas');
           const maxSize = 300;
-          let width = canvas.width;
-          let height = canvas.height;
-          if (width > height) { if (width > maxSize) { height *= maxSize / width; width = maxSize; } }
-          else { if (height > maxSize) { width *= maxSize / height; height = maxSize; } }
-          resizedCanvas.width = width;
-          resizedCanvas.height = height;
+          let width = canvas.width, height = canvas.height;
+          if (width > height) { if (width > maxSize) { height *= maxSize / width; width = maxSize; } } else { if (height > maxSize) { width *= maxSize / height; height = maxSize; } }
+          resizedCanvas.width = width; resizedCanvas.height = height;
           resizedCanvas.getContext('2d').drawImage(canvas, 0, 0, width, height);
-
           State.temp.capturedPhoto = resizedCanvas.toDataURL('image/jpeg', 0.7);
-          
           document.getElementById('capturedImage').src = State.temp.capturedPhoto;
           document.getElementById('capturedImage').classList.remove('hidden');
           document.getElementById('cameraVideo').classList.add('hidden');
           document.getElementById('captureBtn').classList.add('hidden');
           document.getElementById('retakeBtn').classList.remove('hidden');
-          
           State.temp.videoStream.getTracks().forEach(track => track.stop());
-          
           App.updateSubmitBtn();
         },
 
@@ -921,110 +604,65 @@
           if(!canvas) return;
           const container = document.getElementById('sigContainer');
           
-          // FIX: Sync internal resolution with computed CSS display size
+          // CRITICAL FIX: Force dimensions
           const rect = container.getBoundingClientRect();
+          // Safety check for 0 width/height (if modal hidden)
+          if (rect.width === 0 || rect.height === 0) {
+             setTimeout(() => App.handlers.initSignaturePad(), 100);
+             return;
+          }
+
           canvas.width = rect.width;
-          canvas.height = rect.height; 
+          canvas.height = rect.height;
           
           const ctx = canvas.getContext('2d');
           ctx.strokeStyle = "#000000";
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 2.5;
           ctx.lineCap = "round";
           ctx.lineJoin = "round";
+
+          let isDrawing = false;
 
           const getPos = (e) => {
              const r = canvas.getBoundingClientRect();
              let clientX, clientY;
-             
-             if(e.touches && e.touches.length > 0) {
-               clientX = e.touches[0].clientX;
-               clientY = e.touches[0].clientY;
-             } else {
-               clientX = e.clientX;
-               clientY = e.clientY;
-             }
+             if(e.touches && e.touches.length > 0) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; } 
+             else { clientX = e.clientX; clientY = e.clientY; }
              return { x: clientX - r.left, y: clientY - r.top };
           };
 
-          const start = (e) => {
-            e.preventDefault();
-            const pos = getPos(e);
-            ctx.beginPath();
-            ctx.moveTo(pos.x, pos.y);
-          };
+          const start = (e) => { e.preventDefault(); isDrawing = true; const pos = getPos(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); };
+          const move = (e) => { if (!isDrawing) return; e.preventDefault(); const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke(); State.temp.hasSignature = true; App.updateSubmitBtn(); };
+          const end = (e) => { if(isDrawing) { isDrawing = false; ctx.closePath(); } };
 
-          const move = (e) => {
-            e.preventDefault();
-            const pos = getPos(e);
-            ctx.lineTo(pos.x, pos.y);
-            ctx.stroke();
-            State.temp.hasSignature = true;
-            App.updateSubmitBtn();
-          };
-
-          const end = (e) => {
-            // e.preventDefault(); 
-          };
-
-          // Remove old listeners to prevent duplicates
-          const newCanvas = canvas.cloneNode(true);
-          canvas.parentNode.replaceChild(newCanvas, canvas);
-          // Need to re-get elements because node was replaced
-          const activeCanvas = document.getElementById('signatureCanvas');
-          const activeCtx = activeCanvas.getContext('2d');
-          // Restore Context Settings on new node
-          activeCtx.strokeStyle = "#000000";
-          activeCtx.lineWidth = 2;
-          activeCtx.lineCap = "round";
-          activeCtx.lineJoin = "round";
-
-          // Re-bind events (passive: false allows preventDefault on touch)
-          activeCanvas.addEventListener("mousedown", start, { passive: false });
-          activeCanvas.addEventListener("mousemove", move, { passive: false });
-          activeCanvas.addEventListener("mouseup", end);
-          activeCanvas.addEventListener("mouseout", end);
-
-          activeCanvas.addEventListener("touchstart", start, { passive: false });
-          activeCanvas.addEventListener("touchmove", move, { passive: false });
-          activeCanvas.addEventListener("touchend", end);
+          // Assign events directly
+          canvas.onmousedown = start; canvas.onmousemove = move; canvas.onmouseup = end; canvas.onmouseout = end;
+          canvas.ontouchstart = start; canvas.ontouchmove = move; canvas.ontouchend = end;
         },
 
         clearSignature() {
           const canvas = document.getElementById('signatureCanvas');
-          if(canvas) {
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            State.temp.hasSignature = false;
-            App.updateSubmitBtn();
-          }
+          if(canvas) { const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); State.temp.hasSignature = false; App.updateSubmitBtn(); }
         },
 
         async getLocation() {
           const status = document.getElementById('locationStatus');
           status.textContent = '🔄 Sedang mencari...';
-          try {
-            const loc = await Utils.getLocation();
-            State.temp.location = loc;
-            status.textContent = `📍 ${loc.name}`;
-          } catch (err) {
-            status.textContent = `❌ ${err}`;
-            State.temp.location = null;
-          }
+          try { const loc = await Utils.getLocation(); State.temp.location = loc; status.textContent = `📍 ${loc.name}`; } catch (err) { status.textContent = `❌ ${err}`; State.temp.location = null; }
           App.updateSubmitBtn();
         },
 
         async submitAttendance() {
           if (!State.temp.capturedPhoto || !State.temp.location || !State.temp.hasSignature) return;
-          
           const btn = document.getElementById('submitAttendance');
           btn.disabled = true; btn.textContent = 'Mengirim...';
-
           try {
             await Api.submitAttendance({
               activityId: State.temp.selectedActivityId,
               userId: State.currentUser.id, 
               userName: State.currentUser.fullName,
               userRt: State.currentUser.rt,
+              userJabatan: State.currentUser.jabatan, // Added Jabatan
               photoData: State.temp.capturedPhoto,
               signatureData: document.getElementById('signatureCanvas').toDataURL(),
               location: State.temp.location
@@ -1032,38 +670,31 @@
             Utils.showToast('Absensi Berhasil!');
             App.handlers.closeAttendanceModal();
             await App.loadData(); 
-          } catch (err) {
-            btn.disabled = false; btn.textContent = 'Kirim Absensi';
-          }
+          } catch (err) { btn.disabled = false; btn.textContent = 'Kirim Absensi'; }
         },
 
         generateReport() {
           const actId = document.getElementById('reportActivity').value;
           if (!actId) return Utils.showToast('Pilih kegiatan dulu', 'error');
-
           const reportData = State.allAttendances.filter(a => String(a.activityId) === String(actId));
           const tbody = document.getElementById('reportBody');
-          
           tbody.innerHTML = reportData.map((d, i) => `
             <tr>
               <td class="p-2 border text-center">${i + 1}</td>
               <td class="p-2 border">${d.userFullName}</td>
               <td class="p-2 border">${d.userRt}</td>
-              <!-- FIX: Use safe time format -->
+              <td class="p-2 border">${d.userJabatan || '-'}</td>
               <td class="p-2 border">${Utils.formatTime(d.attendanceTime)}</td>
             </tr>
           `).join('');
-          
           document.getElementById('reportResult').classList.remove('hidden');
         },
 
         exportPdf() {
           const { jsPDF } = window.jspdf;
           const doc = new jsPDF();
-          
           const actSelect = document.getElementById('reportActivity');
           const actName = actSelect.options[actSelect.selectedIndex].text;
-          
           doc.text(`Laporan Absensi: ${actName}`, 14, 15);
           doc.autoTable({ html: '#reportTable', startY: 20 });
           doc.save('laporan-absensi.pdf');
