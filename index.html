@@ -30,7 +30,8 @@
   <script>
     // ==================== CONFIGURATION ====================
     const Config = {
-      API_URL: "https://script.google.com/macros/s/AKfycbxB731J41Fun7Pg2kUhR6GG0jzR7tMWpPyh5JLHWdIJj25VLtg8NGXYn5RCW625Yw/exec", 
+      // UPDATED API URL
+      API_URL: "https://script.google.com/macros/s/AKfycbz3j-FAvuj6mK-7rcL7We3B4fovH7aIriBdxCXgj7lkCne32oLi6Y1L-L42NVuiZkLQ/exec", 
       APP_TITLE: 'Absensi Kegiatan RW',
       RW_NAME: 'RW 01'
     };
@@ -41,6 +42,7 @@
       currentView: 'login',
       allActivities: [],
       allAttendances: [],
+      allUsers: [], 
       temp: {
         capturedPhoto: null,
         signatureData: null,
@@ -76,6 +78,29 @@
       async register(formData) { return await Api.request('register', formData); },
       async getActivities() { State.allActivities = await Api.request('getActivities'); },
       async getAttendances() { State.allAttendances = await Api.request('getAttendances'); },
+      
+      async getUsers() { 
+        try {
+          const response = await fetch(Config.API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({ action: 'getUsers', data: {} })
+          });
+          if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+          const result = await response.json();
+          
+          if (result.status === 'success') {
+            State.allUsers = result.data;
+          } else {
+            console.warn("Backend does not support getUsers yet:", result.message);
+            State.allUsers = [];
+          }
+        } catch (e) {
+          console.warn("Gagal mengambil data users (network/backend issue)", e);
+          State.allUsers = [];
+        }
+      },
+
       async addActivity(formData) { return await Api.request('addActivity', formData); },
       async toggleActivity(id) { return await Api.request('toggleActivity', { id }); },
       async deleteActivity(id) { return await Api.request('deleteActivity', { id }); },
@@ -232,7 +257,6 @@
         let myAttendances = State.allAttendances.filter(a => a.userId === State.currentUser.id);
         myAttendances.sort((a, b) => new Date(b.attendanceTime) - new Date(a.attendanceTime));
 
-        // Prepare Active Participants List (From all active activities)
         const activeActivitiesIds = activities.map(a => String(a.__backendId));
         const activeParticipants = State.allAttendances.filter(a => activeActivitiesIds.includes(String(a.activityId)));
         activeParticipants.sort((a, b) => new Date(b.attendanceTime) - new Date(a.attendanceTime));
@@ -247,14 +271,17 @@
             </header>
             <main class="max-w-4xl mx-auto p-4 space-y-6 fade-in">
               
-              <!-- Active Participants Table (New Requirement) -->
               ${activeParticipants.length > 0 ? `
               <div class="bg-white rounded-xl card-shadow overflow-hidden">
-                <div class="p-4 border-b border-gray-100 bg-gray-50">
+                <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
                   <h2 class="font-bold text-gray-800">👥 Peserta Kegiatan Aktif</h2>
+                  <button id="exportActivePdf" class="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded shadow flex items-center gap-1 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    PDF
+                  </button>
                 </div>
                 <div class="overflow-x-auto">
-                  <table class="w-full text-sm text-left whitespace-nowrap min-w-[800px]">
+                  <table id="activeParticipantsTable" class="w-full text-sm text-left whitespace-nowrap min-w-[800px]">
                     <thead class="bg-gray-50"><tr><th class="p-3 border">No</th><th class="p-3 border">Nama</th><th class="p-3 border">Jabatan</th><th class="p-3 border">Kegiatan</th><th class="p-3 border">Foto</th><th class="p-3 border">Tanda Tangan</th><th class="p-3 border">Waktu</th></tr></thead>
                     <tbody class="divide-y">
                       ${activeParticipants.map((att, i) => {
@@ -276,28 +303,27 @@
                 </div>
               </div>` : ''}
 
-              <!-- My Stats -->
               <div class="grid grid-cols-2 gap-4">
                 <div class="bg-white p-4 rounded-xl card-shadow"><p class="text-2xl font-bold text-gray-800">${activities.length}</p><p class="text-sm text-gray-500">Kegiatan Aktif</p></div>
                 <div class="bg-white p-4 rounded-xl card-shadow"><p class="text-2xl font-bold text-gray-800">${myAttendances.length}</p><p class="text-sm text-gray-500">Total Hadir Saya</p></div>
               </div>
 
-              <!-- My Activities -->
               <div class="bg-white rounded-xl card-shadow overflow-hidden">
                 <div class="p-4 border-b border-gray-100 bg-gray-50"><h2 class="font-bold text-gray-800">📋 Kegiatan Tersedia</h2></div>
                 <div class="divide-y divide-gray-100">
                   ${activities.length === 0 ? '<div class="p-8 text-center text-gray-500">Tidak ada kegiatan aktif saat ini.</div>' : ''}
                   ${activities.map(act => {
                     const hasAttended = myAttendances.some(a => String(a.activityId) === String(act.__backendId));
+                    // Requirement 2: Format date to DD-MM-YYYY and display time
+                    // const formattedDate = act.activityDate.split('-').reverse().join('-');
                     return `<div class="p-4 flex justify-between items-start hover:bg-gray-50 transition-colors">
-                      <div><h3 class="font-semibold text-gray-800">${act.activityName}</h3><div class="mt-1 space-y-0.5"><p class="text-sm text-gray-500">📅 ${Utils.formatDate(act.activityDate)} • 🕐 ${act.activityTime}</p><p class="text-sm text-gray-500">📍 ${act.activityLocation}</p></div></div>
+                      <div><h3 class="font-semibold text-gray-800">${act.activityName}</h3><div class="mt-1 space-y-0.5"><p class="text-sm text-gray-500"><p>📅 Tanggal: ${Utils.formatDate(act.activityDate)}</p><p> 🕐 Jam: ${Utils.formatTime(act.activityTime)}</p> </p><p class="text-sm text-gray-500">📍 Lokasi: ${act.activityLocation}</p></div></div>
                       ${hasAttended ? '<span class="mt-2 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">✓ Sudah Absen</span>' : `<button data-attend="${act.__backendId}" class="mt-2 btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm">Absen Sekarang</button>`}
                     </div>`;
                   }).join('')}
                 </div>
               </div>
 
-              <!-- My History -->
               <div class="bg-white rounded-xl card-shadow overflow-hidden">
                 <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center"><h2 class="font-bold text-gray-800">📝 Riwayat Kehadiran Saya</h2><span class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium">${myAttendances.length} Catatan</span></div>
                 <div class="max-h-[500px] overflow-y-auto">
@@ -332,7 +358,6 @@
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-2">Tanda Tangan</label>
-                  <!-- FIX: h-40 ensures height is sufficient -->
                   <div class="relative border-2 border-gray-300 rounded-lg bg-white overflow-hidden touch-none h-40 w-full" id="sigContainer" style="touch-action: none;">
                     <canvas id="signatureCanvas" class="w-full h-full cursor-crosshair"></canvas>
                     <button type="button" id="clearSignature" class="absolute top-2 right-2 text-xs bg-red-50 text-red-600 border border-red-200 px-2 py-1 rounded hover:bg-red-100 z-10">Hapus</button>
@@ -357,7 +382,12 @@
               <div class="max-w-6xl mx-auto flex justify-between"><div><h1 class="text-xl font-bold">${Config.APP_TITLE}</h1><p class="text-blue-200 text-sm">Admin Panel</p></div><button id="logoutBtn" class="bg-white/20 px-3 py-1 rounded text-sm">Keluar</button></div>
             </header>
             <nav class="bg-white shadow sticky top-[60px] z-10 overflow-x-auto">
-              <div class="flex max-w-6xl mx-auto"><button data-tab="dashboard" class="admin-tab px-6 py-3 border-b-2 border-amber-500 text-amber-600 font-medium whitespace-nowrap">Dashboard</button><button data-tab="activities" class="admin-tab px-6 py-3 border-b-2 border-transparent text-gray-500 font-medium whitespace-nowrap">Kegiatan</button><button data-tab="report" class="admin-tab px-6 py-3 border-b-2 border-transparent text-gray-500 font-medium whitespace-nowrap">Laporan</button></div>
+              <div class="flex max-w-6xl mx-auto">
+                <button data-tab="dashboard" class="admin-tab px-6 py-3 border-b-2 border-amber-500 text-amber-600 font-medium whitespace-nowrap">Dashboard</button>
+                <button data-tab="activities" class="admin-tab px-6 py-3 border-b-2 border-transparent text-gray-500 font-medium whitespace-nowrap">Kegiatan</button>
+                <button data-tab="report" class="admin-tab px-6 py-3 border-b-2 border-transparent text-gray-500 font-medium whitespace-nowrap">Laporan</button>
+                <button data-tab="users" class="admin-tab px-6 py-3 border-b-2 border-transparent text-gray-500 font-medium whitespace-nowrap">Warga</button>
+              </div>
             </nav>
             <main class="max-w-6xl mx-auto p-4 fade-in">
               <div id="tab-dashboard" class="tab-content">
@@ -365,37 +395,102 @@
                 <div class="bg-white rounded-xl card-shadow overflow-hidden">
                   <div class="p-4 border-b"><h2 class="font-bold">Kehadiran Terbaru</h2></div>
                   <div class="overflow-x-auto">
-                    <!-- Updated Columns: No., Nama, Jabatan, Kegiatan, Photo, Tanda tangan, Data -->
                     <table class="w-full text-sm text-left whitespace-nowrap min-w-[800px]">
                       <thead class="bg-gray-50"><tr><th class="p-3 border">No</th><th class="p-3 border">Nama</th><th class="p-3 border">Jabatan</th><th class="p-3 border">Kegiatan</th><th class="p-3 border">Foto</th><th class="p-3 border">Tanda Tangan</th><th class="p-3 border">Waktu</th></tr></thead>
                       <tbody class="divide-y">
-                        ${State.allAttendances.slice(0, 10).map((att, i) => {
-                          const act = State.allActivities.find(a => String(a.__backendId) === String(att.activityId));
-                          return `
-                          <tr>
-                            <td class="p-3 border text-center">${i + 1}</td>
-                            <td class="p-3 border font-medium">${att.userFullName}<br><span class="text-xs text-gray-500">${att.userRt}</span></td>
-                            <td class="p-3 border">${att.userJabatan || '-'}</td>
-                            <td class="p-3 border">${act?.activityName || '-'}</td>
-                            <td class="p-3 border">${att.photoData ? `<img src="${att.photoData}" class="w-10 h-10 rounded object-cover cursor-pointer hover:scale-110" onclick="window.open(this.src)">` : '-'}</td>
-                            <td class="p-3 border">${att.signatureData ? `<img src="${att.signatureData}" class="w-12 h-12 bg-white border border-gray-200 rounded cursor-pointer hover:scale-110" onclick="window.open(this.src)">` : '-'}</td>
-                            <td class="p-3 border">${Utils.formatTime(att.attendanceTime)}</td>
-                          </tr>`;
-                        }).join('')}
+                        ${(() => {
+                          // Requirement 1: Filter for Active Activities only
+                          const activeActivitiesIds = State.allActivities.filter(a => a.activityStatus === 'active').map(a => String(a.__backendId));
+                          const recentAttendances = State.allAttendances
+                            .filter(a => activeActivitiesIds.includes(String(a.activityId)))
+                            .sort((a,b) => new Date(b.attendanceTime) - new Date(a.attendanceTime))
+                            .slice(0, 10);
+
+                          return recentAttendances.map((att, i) => {
+                            const act = State.allActivities.find(a => String(a.__backendId) === String(att.activityId));
+                            return `
+                            <tr>
+                              <td class="p-3 border text-center">${i + 1}</td>
+                              <td class="p-3 border font-medium">${att.userFullName}<br><span class="text-xs text-gray-500">${att.userRt}</span></td>
+                              <td class="p-3 border">${att.userJabatan || '-'}</td>
+                              <td class="p-3 border">${act?.activityName || '-'}</td>
+                              <td class="p-3 border">${att.photoData ? `<img src="${att.photoData}" class="w-10 h-10 rounded object-cover cursor-pointer hover:scale-110" onclick="window.open(this.src)">` : '-'}</td>
+                              <td class="p-3 border">${att.signatureData ? `<img src="${att.signatureData}" class="w-12 h-12 bg-white border border-gray-200 rounded cursor-pointer hover:scale-110" onclick="window.open(this.src)">` : '-'}</td>
+                              <td class="p-3 border">${Utils.formatTime(att.attendanceTime)}</td>
+                            </tr>`;
+                          }).join('');
+                        })()}
                       </tbody>
                     </table>
                   </div>
                 </div>
               </div>
+              
               <div id="tab-activities" class="tab-content hidden">
                 <div class="bg-white rounded-xl card-shadow overflow-hidden">
                   <div class="p-4 border-b flex justify-between items-center"><h2 class="font-bold">Daftar Kegiatan</h2><button id="addActivityBtn" class="btn-primary text-white px-4 py-2 rounded text-sm">+ Tambah</button></div>
-                  <div class="overflow-x-auto"><table class="w-full text-sm text-left"><thead class="bg-gray-50"><tr><th class="p-3">Nama</th><th class="p-3">Tanggal</th><th class="p-3">Status</th><th class="p-3">Aksi</th></tr></thead><tbody class="divide-y">${State.allActivities.map(act => `<tr><td class="p-3 font-medium">${act.activityName}</td><td class="p-3">${Utils.formatDate(act.activityDate)}</td><td class="p-3"><span class="px-2 py-1 rounded-full text-xs ${act.activityStatus === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}">${act.activityStatus}</span></td><td class="p-3 flex gap-2"><button data-toggle="${act.__backendId}" class="text-blue-600 hover:underline">${act.activityStatus === 'active' ? 'Tutup' : 'Buka'}</button><button data-delete="${act.__backendId}" class="text-red-600 hover:underline">Hapus</button></td></tr>`).join('')}</tbody></table></div>
+                  <div class="overflow-x-auto">
+				  <table class="w-full text-sm text-left">
+				  <thead class="bg-gray-50">
+				  <tr>
+				  <th class="p-3">Nama</th>
+				  <th class="p-3">Tanggal</th>
+				  <th class="p-3">Waktu</th>
+				  <th class="p-3">Status</th>
+				  <th class="p-3">Aksi</th></tr></thead>
+				  <tbody class="divide-y">${State.allActivities.map(act => `<tr>
+				  <td class="p-3 font-medium">${act.activityName}</td>
+				  <td class="p-3">${Utils.formatDate(act.activityDate)}</td>
+				  <td class="p-3">${Utils.formatTime(act.activityTime)}</td>
+				  <td class="p-3">
+				  <span class="px-2 py-1 rounded-full text-xs ${act.activityStatus === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}">${act.activityStatus}</span>
+				  </td>
+				  <td class="p-3 flex gap-2">
+				  <button data-toggle="${act.__backendId}" class="text-blue-600 hover:underline">${act.activityStatus === 'active' ? 'Tutup' : 'Buka'}</button>
+				  <button data-delete="${act.__backendId}" class="text-red-600 hover:underline">Hapus</button></td></tr>`).join('')}</tbody></table></div>
                 </div>
               </div>
+
               <div id="tab-report" class="tab-content hidden">
-                <div class="bg-white rounded-xl card-shadow p-4"><h2 class="font-bold mb-4">Rekap Laporan</h2><div class="flex gap-4 flex-col md:flex-row mb-4"><select id="reportActivity" class="border p-2 rounded w-full md:w-1/2 input-focus outline-none"><option value="">Pilih Kegiatan</option>${State.allActivities.map(act => `<option value="${act.__backendId}">${act.activityName}</option>`).join('')}</select><button id="generateReport" class="btn-primary text-white px-4 py-2 rounded">Tampilkan</button></div><div id="reportResult" class="hidden overflow-x-auto"><table id="reportTable" class="w-full text-sm text-left border"><thead class="bg-gray-100"><tr><th class="p-2 border">No</th><th class="p-2 border">Nama</th><th class="p-2 border">RT</th><th class="p-2 border">Jabatan</th><th class="p-2 border">Waktu</th></tr></thead><tbody id="reportBody"></tbody></table><button id="exportPdf" class="mt-4 bg-red-600 text-white px-4 py-2 rounded text-sm">Download PDF</button></div></div>
+                <div class="bg-white rounded-xl card-shadow p-4"><h2 class="font-bold mb-4">Rekap Laporan</h2><div class="flex gap-4 flex-col md:flex-row mb-4"><select id="reportActivity" class="border p-2 rounded w-full md:w-1/2 input-focus outline-none"><option value="">Pilih Kegiatan</option>${State.allActivities.map(act => `<option value="${act.__backendId}">${act.activityName}</option>`).join('')}</select><button id="generateReport" class="btn-primary text-white px-4 py-2 rounded">Tampilkan</button></div><div id="reportResult" class="hidden overflow-x-auto"><table id="reportTable" class="w-full text-sm text-left border"><thead class="bg-gray-100"><tr><th class="p-2 border">No</th><th class="p-2 border">Nama</th><th class="p-2 border">Jabatan</th><th class="p-2 border">RT</th><th class="p-2 border">Waktu</th></tr></thead><tbody id="reportBody"></tbody></table><button id="exportPdf" class="mt-4 bg-red-600 text-white px-4 py-2 rounded text-sm">Download PDF</button></div></div>
               </div>
+
+              <div id="tab-users" class="tab-content hidden">
+                <div class="bg-white rounded-xl card-shadow overflow-hidden">
+                  <div class="p-4 border-b flex justify-between items-center">
+                    <h2 class="font-bold">Daftar Warga Terdaftar</h2>
+                    <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">${State.allUsers.length} Warga</span>
+                  </div>
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left whitespace-nowrap">
+                      <thead class="bg-gray-50">
+                        <tr>
+                          <th class="p-3 border">No</th>
+                          <th class="p-3 border">Nama Lengkap</th>
+                          <th class="p-3 border">RT</th>
+                          <th class="p-3 border">Jabatan</th>
+                          <th class="p-3 border">No. HP</th>
+                          <th class="p-3 border">Username</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y">
+                        ${State.allUsers.length === 0 ? '<tr><td colspan="6" class="p-4 text-center text-gray-500">Belum ada data warga.</td></tr>' : 
+                          State.allUsers.map((user, i) => `
+                          <tr>
+                            <td class="p-3 border text-center">${i + 1}</td>
+                            <td class="p-3 border font-medium">${user.fullName || '-'}</td>
+                            <td class="p-3 border">${user.rt || '-'}</td>
+                            <td class="p-3 border">${user.jabatan || '-'}</td>
+                            <td class="p-3 border">${user.phone || '-'}</td>
+                            <td class="p-3 border text-gray-500">${user.username || '-'}</td>
+                          </tr>`).join('')
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
             </main>
             ${UI.activityModal()}${UI.deleteModal()}
           </div>`;
@@ -419,7 +514,10 @@
         UI.render();
       },
       async loadData() {
-        try { await Promise.all([Api.getActivities(), Api.getAttendances()]); UI.render(); } catch (e) { console.error("Gagal memuat data", e); }
+        try { 
+          await Promise.all([Api.getActivities(), Api.getAttendances(), Api.getUsers()]); 
+          UI.render(); 
+        } catch (e) { console.error("Gagal memuat data", e); }
       },
       updateSubmitBtn() {
         const btn = document.getElementById('submitAttendance');
@@ -438,7 +536,6 @@
         document.getElementById('goToLogin')?.addEventListener('click', () => { State.currentView = 'login'; UI.render(); });
         document.getElementById('logoutBtn')?.addEventListener('click', App.handlers.logout);
 
-        // Password Toggles
         document.getElementById('togglePassReg')?.addEventListener('click', () => Utils.togglePassword('regPassword', 'togglePassReg'));
         document.getElementById('togglePassConfirm')?.addEventListener('click', () => Utils.togglePassword('regConfirmPassword', 'togglePassConfirm'));
         document.getElementById('toggleLoginPass')?.addEventListener('click', () => Utils.togglePassword('loginPassword', 'toggleLoginPass'));
@@ -452,7 +549,6 @@
           });
         }
 
-        // Admin Tabs
         document.querySelectorAll('.admin-tab').forEach(tab => {
           tab.addEventListener('click', (e) => {
             const target = e.target.dataset.tab;
@@ -463,7 +559,6 @@
           });
         });
 
-        // Modals
         document.getElementById('addActivityBtn')?.addEventListener('click', () => document.getElementById('activityModal').classList.remove('hidden'));
         document.getElementById('closeActivityModal')?.addEventListener('click', () => { document.getElementById('activityModal').classList.add('hidden'); document.getElementById('activityForm').reset(); });
         document.querySelectorAll('[data-toggle]').forEach(btn => { btn.addEventListener('click', async () => { const btnOrig = btn.textContent; btn.textContent = '...'; try { await Api.toggleActivity(btn.dataset.toggle); await App.loadData(); } catch (err) { btn.textContent = btnOrig; } }); });
@@ -471,7 +566,6 @@
         document.getElementById('cancelDelete')?.addEventListener('click', () => document.getElementById('deleteModal').classList.add('hidden'));
         document.getElementById('confirmDelete')?.addEventListener('click', async () => { try { await Api.deleteActivity(State.temp.deleteActivityId); document.getElementById('deleteModal').classList.add('hidden'); await App.loadData(); } catch (e) {} });
 
-        // Attendance Flow
         document.querySelectorAll('[data-attend]').forEach(btn => { btn.addEventListener('click', () => App.handlers.openAttendanceModal(btn.dataset.attend)); });
         document.getElementById('closeAttendanceModal')?.addEventListener('click', App.handlers.closeAttendanceModal);
         document.getElementById('captureBtn')?.addEventListener('click', App.handlers.capturePhoto);
@@ -481,7 +575,6 @@
           document.getElementById('captureBtn').classList.remove('hidden');
           document.getElementById('retakeBtn').classList.add('hidden');
           State.temp.capturedPhoto = null;
-          // FIX: Restart Camera
           await App.handlers.startCamera();
           App.updateSubmitBtn();
         });
@@ -489,9 +582,9 @@
         document.getElementById('refreshLocation')?.addEventListener('click', App.handlers.getLocation);
         document.getElementById('submitAttendance')?.addEventListener('click', App.handlers.submitAttendance);
 
-        // Reports
         document.getElementById('generateReport')?.addEventListener('click', App.handlers.generateReport);
         document.getElementById('exportPdf')?.addEventListener('click', App.handlers.exportPdf);
+        document.getElementById('exportActivePdf')?.addEventListener('click', App.handlers.exportActiveParticipantsPdf);
       },
 
       handlers: {
@@ -529,7 +622,8 @@
         async addActivity(e) {
           e.preventDefault();
           const btn = document.querySelector('#activityForm button[type="submit"]');
-          const data = { name: document.getElementById('actName').value, date: document.getElementById('actDate').value, time: document.getElementById('actTime').value, location: document.getElementById('actLocation').value };
+		  const uniqueId = crypto.randomUUID();
+          const data = { actID: uniqueId, name: document.getElementById('actName').value, date: document.getElementById('actDate').value, time: document.getElementById('actTime').value, location: document.getElementById('actLocation').value };
           btn.disabled = true;
           try { await Api.addActivity(data); document.getElementById('activityModal').classList.add('hidden'); document.getElementById('activityForm').reset(); await App.loadData(); } finally { btn.disabled = false; }
         },
@@ -553,7 +647,6 @@
           const modal = document.getElementById('attendanceModal');
           modal.classList.remove('hidden');
           
-          // Reset UI
           document.getElementById('capturedImage').classList.add('hidden');
           document.getElementById('cameraVideo').classList.remove('hidden');
           document.getElementById('captureBtn').classList.remove('hidden');
@@ -561,14 +654,8 @@
           document.getElementById('locationStatus').textContent = '⏳ Mendeteksi lokasi...';
           App.updateSubmitBtn();
 
-          // Start Camera
           await App.handlers.startCamera();
-
-          // Initialize Signature Pad
-          // Delay to ensure modal is rendered and has dimensions
           setTimeout(() => App.handlers.initSignaturePad(), 100);
-
-          // Get Location
           App.handlers.getLocation();
         },
 
@@ -604,9 +691,7 @@
           if(!canvas) return;
           const container = document.getElementById('sigContainer');
           
-          // CRITICAL FIX: Force dimensions
           const rect = container.getBoundingClientRect();
-          // Safety check for 0 width/height (if modal hidden)
           if (rect.width === 0 || rect.height === 0) {
              setTimeout(() => App.handlers.initSignaturePad(), 100);
              return;
@@ -635,7 +720,6 @@
           const move = (e) => { if (!isDrawing) return; e.preventDefault(); const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke(); State.temp.hasSignature = true; App.updateSubmitBtn(); };
           const end = (e) => { if(isDrawing) { isDrawing = false; ctx.closePath(); } };
 
-          // Assign events directly
           canvas.onmousedown = start; canvas.onmousemove = move; canvas.onmouseup = end; canvas.onmouseout = end;
           canvas.ontouchstart = start; canvas.ontouchmove = move; canvas.ontouchend = end;
         },
@@ -662,7 +746,7 @@
               userId: State.currentUser.id, 
               userName: State.currentUser.fullName,
               userRt: State.currentUser.rt,
-              userJabatan: State.currentUser.jabatan, // Added Jabatan
+              userJabatan: State.currentUser.jabatan, 
               photoData: State.temp.capturedPhoto,
               signatureData: document.getElementById('signatureCanvas').toDataURL(),
               location: State.temp.location
@@ -678,13 +762,13 @@
           if (!actId) return Utils.showToast('Pilih kegiatan dulu', 'error');
           const reportData = State.allAttendances.filter(a => String(a.activityId) === String(actId));
           const tbody = document.getElementById('reportBody');
-          tbody.innerHTML = reportData.map((d, i) => `
+          tbody.innerHTML = reportData.map((att, i) => `
             <tr>
               <td class="p-2 border text-center">${i + 1}</td>
-              <td class="p-2 border">${d.userFullName}</td>
-              <td class="p-2 border">${d.userRt}</td>
-              <td class="p-2 border">${d.userJabatan || '-'}</td>
-              <td class="p-2 border">${Utils.formatTime(d.attendanceTime)}</td>
+              <td class="p-2 border">${att.userFullName}</td>
+              <td class="p-2 border">${att.userJabatan || '-'}</td>
+              <td class="p-2 border">${att.userRt}</td>
+              <td class="p-2 border">${Utils.formatTime(att.attendanceTime)}</td>
             </tr>
           `).join('');
           document.getElementById('reportResult').classList.remove('hidden');
@@ -693,17 +777,42 @@
         exportPdf() {
           const { jsPDF } = window.jspdf;
           const doc = new jsPDF();
-          const actSelect = document.getElementById('reportActivity');
-          const actName = actSelect.options[actSelect.selectedIndex].text;
-          doc.text(`Laporan Absensi: ${actName}`, 14, 15);
+          doc.text("Laporan Kehadiran", 14, 15);
           doc.autoTable({ html: '#reportTable', startY: 20 });
-          doc.save('laporan-absensi.pdf');
+          doc.save('laporan-kehadiran.pdf');
+        },
+
+        exportActiveParticipantsPdf() {
+          const table = document.getElementById('activeParticipantsTable');
+          if(!table) {
+            Utils.showToast('Tabel tidak ditemukan', 'error');
+            return;
+          }
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF({
+            orientation: 'landscape', 
+            unit: 'mm',
+            format: 'a4'
+          });
+          
+          doc.setFontSize(14);
+          doc.text("Daftar Peserta Kegiatan Aktif", 14, 15);
+          
+          doc.autoTable({ 
+            html: '#activeParticipantsTable', 
+            startY: 20,
+            theme: 'grid',
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [30, 58, 95] } 
+          });
+          
+          doc.save('peserta-kegiatan-aktif.pdf');
         }
       }
     };
 
+    window.App = App;
     App.init();
   </script>
 </body>
 </html>
-
